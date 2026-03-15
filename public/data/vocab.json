@@ -1,0 +1,14 @@
+{
+  "id_to_gloss": {
+    "0":"HELLO","1":"THANK_YOU","2":"PLEASE","3":"SORRY","4":"YES",
+    "5":"NO","6":"MOTHER","7":"FATHER","8":"FRIEND","9":"BABY",
+    "10":"BOY","11":"GIRL","12":"EAT","13":"DRINK","14":"SLEEP",
+    "15":"HELP","16":"WANT","17":"LIKE","18":"KNOW","19":"THINK",
+    "20":"LEARN","21":"WORK","22":"PLAY","23":"GO","24":"STOP",
+    "25":"WHAT","26":"WHERE","27":"WHO","28":"WHY","29":"HOW",
+    "30":"GOOD","31":"BAD","32":"HAPPY","33":"SAD","34":"BIG",
+    "35":"SMALL","36":"HOME","37":"SCHOOL","38":"BOOK","39":"WATER",
+    "40":"FOOD","41":"MORE","42":"FINISH","43":"AGAIN","44":"SAME",
+    "45":"DIFFERENT","46":"CANDY","47":"APPLE","48":"CHAIR","49":"SIT"
+  }
+}
