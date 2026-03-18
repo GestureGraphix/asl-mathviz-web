@@ -16,7 +16,10 @@ let session:  ort.InferenceSession | null = null;
 let idToGloss: Record<number, string>     = {};
 
 const ringBuffer: Float32Array[] = [];
-let restCounter = 0;
+const normBuffer: number[]       = [];
+let restCounter  = 0;
+let liveFrameCtr = 0;
+const LIVE_EVERY = 15;  // send a live candidate every N frames (~500ms at 30fps)
 
 // ── Softmax ───────────────────────────────────────────────────────
 function softmax(logits: Float32Array): Float32Array {
@@ -91,9 +94,11 @@ async function runInference(): Promise<InferenceResult | null> {
   }));
 
   return {
-    gloss:      top_k[0].gloss,
-    confidence: top_k[0].confidence,
+    gloss:        top_k[0].gloss,
+    confidence:   top_k[0].confidence,
     top_k,
+    allProbs:     probs,
+    attn_weights: new Float32Array(normBuffer.slice(-T)),
     timestamp_ms: performance.now(),
   };
 }
@@ -115,13 +120,30 @@ async function processFeatures(data: ArrayBuffer) {
   }
 
   ringBuffer.push(fv);
-  if (ringBuffer.length > MAX_BUFFER_SIZE) ringBuffer.shift();
+  normBuffer.push(movNorm);
+  if (ringBuffer.length > MAX_BUFFER_SIZE) { ringBuffer.shift(); normBuffer.shift(); }
 
-  // Trigger inference at sign boundary
+  // Report current buffer size to main thread every frame
+  self.postMessage({ type: "frames", count: ringBuffer.length } satisfies InferenceWorkerOut);
+
+  // Throttled live candidate — runs every LIVE_EVERY frames while buffer has enough data
+  liveFrameCtr++;
+  if (liveFrameCtr >= LIVE_EVERY) {
+    liveFrameCtr = 0;
+    const live = await runInference();
+    if (live) {
+      self.postMessage({ type: "live", data: live } satisfies InferenceWorkerOut);
+    }
+  }
+
+  // Trigger committed inference at sign boundary
   if (restCounter === REST_FRAMES && ringBuffer.length >= MIN_SIGN_FRAMES) {
     const result = await runInference();
     ringBuffer.length = 0;
+    normBuffer.length = 0;
     restCounter = 0;
+    liveFrameCtr = 0;
+    self.postMessage({ type: "frames", count: 0 } satisfies InferenceWorkerOut);
 
     if (result) {
       self.postMessage({ type: "result", data: result } satisfies InferenceWorkerOut);

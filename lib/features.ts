@@ -93,6 +93,8 @@ export function extractFeatures(landmarks: Landmarks): PhonologyFeatures {
   // 4. Codebook soft activations (for visualization)
   const activations_H = softActivations(u_H, CODEBOOK_SIZES.H);
   const activations_L = softActivations(u_L, CODEBOOK_SIZES.L);
+  const activations_O = softActivations(u_O, CODEBOOK_SIZES.O);
+  const activations_M = softActivations(u_M, CODEBOOK_SIZES.M);
 
   // 5. Dominant code indices (argmax)
   const argmax = (a: Float32Array) =>
@@ -114,6 +116,8 @@ export function extractFeatures(landmarks: Landmarks): PhonologyFeatures {
     feature_vector_51,
     activations_H,
     activations_L,
+    activations_O,
+    activations_M,
     norm_H: l2(u_H),
     norm_L: l2(u_L),
     norm_O,
@@ -121,5 +125,7 @@ export function extractFeatures(landmarks: Landmarks): PhonologyFeatures {
     norm_N: l2(u_N),
     code_H: argmax(activations_H),
     code_L: argmax(activations_L),
+    code_O: argmax(activations_O),
+    code_M: argmax(activations_M),
   };
 }

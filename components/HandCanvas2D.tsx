@@ -15,73 +15,58 @@ const HAND_CONNECTIONS = [
 
 export function HandCanvas2D({
   videoRef,
+  mirror = true,
 }: {
   videoRef: React.RefObject<HTMLVideoElement | null>;
+  mirror?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const landmarks = useAppStore((s) => s.landmarks);
 
-  // Draw on every landmarks update
+  // Continuous RAF loop — draws video every frame, overlays landmarks when available
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const video  = videoRef.current;
-    if (!canvas) return;
+    let rafId: number;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    function draw() {
+      const canvas = canvasRef.current;
+      const video  = videoRef.current;
 
-    const W = canvas.width;
-    const H = canvas.height;
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          const W = canvas.width;
+          const H = canvas.height;
 
-    ctx.clearRect(0, 0, W, H);
+          ctx.clearRect(0, 0, W, H);
 
-    // ── Draw mirrored video feed ─────────────────────────
-    if (video && video.readyState >= 2) {
-      ctx.save();
-      ctx.translate(W, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(video, 0, 0, W, H);
-      ctx.restore();
-    }
+          // Draw video feed
+          if (video && video.readyState >= 2) {
+            if (mirror) {
+              ctx.save();
+              ctx.translate(W, 0);
+              ctx.scale(-1, 1);
+              ctx.drawImage(video, 0, 0, W, H);
+              ctx.restore();
+            } else {
+              ctx.drawImage(video, 0, 0, W, H);
+            }
+          }
 
-    if (!landmarks) return;
-
-    function drawHand(arr: Float32Array, color: string) {
-      if (!ctx) return;
-      // lm(i) returns pixel coords — mirror x to match video
-      const lm = (i: number) => ({
-        x: (1 - arr[i * 3])     * W,
-        y:      arr[i * 3 + 1]  * H,
-      });
-
-      // Bones
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.globalAlpha = 0.75;
-      for (const [a, b] of HAND_CONNECTIONS) {
-        const pa = lm(a), pb = lm(b);
-        ctx.beginPath();
-        ctx.moveTo(pa.x, pa.y);
-        ctx.lineTo(pb.x, pb.y);
-        ctx.stroke();
+          // Overlay hand landmarks (read latest from store without subscribing)
+          const { landmarks } = useAppStore.getState();
+          if (landmarks) {
+            if (landmarks.right_hand) drawHand(ctx, W, H, landmarks.right_hand, "#3ea89f");
+            if (landmarks.left_hand)  drawHand(ctx, W, H, landmarks.left_hand,  "#e0686a");
+            ctx.globalAlpha = 1;
+          }
+        }
       }
 
-      // Joints
-      ctx.globalAlpha = 1;
-      for (let i = 0; i < 21; i++) {
-        const p = lm(i);
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, i === 0 ? 5 : 3, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
-      }
+      rafId = requestAnimationFrame(draw);
     }
 
-    if (landmarks.right_hand) drawHand(landmarks.right_hand, "#3ea89f"); // teal
-    if (landmarks.left_hand)  drawHand(landmarks.left_hand,  "#e0686a"); // coral
-
-    ctx.globalAlpha = 1;
-  }, [landmarks, videoRef]);
+    rafId = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(rafId);
+  }, [videoRef, mirror]);
 
   // Resize canvas to match container
   useEffect(() => {
@@ -107,4 +92,37 @@ export function HandCanvas2D({
       }}
     />
   );
+}
+
+function drawHand(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  arr: Float32Array,
+  color: string,
+) {
+  const lm = (i: number) => ({
+    x: (1 - arr[i * 3])    * W,
+    y:      arr[i * 3 + 1] * H,
+  });
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.globalAlpha = 0.75;
+  for (const [a, b] of HAND_CONNECTIONS) {
+    const pa = lm(a), pb = lm(b);
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = 1;
+  for (let i = 0; i < 21; i++) {
+    const p = lm(i);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, i === 0 ? 5 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
 }

@@ -18,7 +18,9 @@ export const useAppStore = create<AppState>((set) => ({
   landmarks: null,
   phonology: null,
   prediction: null,
+  candidate:  null,
   transcript: [],
+  signFrames: 0,
 
   setStatus: (status: AppStatus) => set({ status }),
   setFps: (fps: number) => set({ fps }),
@@ -26,6 +28,8 @@ export const useAppStore = create<AppState>((set) => ({
   setLandmarks: (landmarks: Landmarks | null) => set({ landmarks }),
   setPhonology: (phonology: PhonologyFeatures | null) => set({ phonology }),
   setPrediction: (prediction: InferenceResult | null) => set({ prediction }),
+  setCandidate:  (candidate:  InferenceResult | null) => set({ candidate }),
+  setSignFrames: (signFrames: number) => set({ signFrames }),
 
   pushTranscript: (entry: TranscriptEntry) =>
     set((state) => ({

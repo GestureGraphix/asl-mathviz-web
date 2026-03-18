@@ -6,26 +6,53 @@ import { useAppStore } from "@/store/appStore";
 import { AppHeader } from "@/components/AppHeader";
 import { TranscriptStrip } from "@/components/TranscriptStrip";
 import { HandCanvas2D } from "@/components/HandCanvas2D";
+import { HandScene3D } from "@/components/HandScene3D";
 import { PhonologyBars } from "@/components/PhonologyBars";
 import { PredictionOverlay } from "@/components/PredictionOverlay";
 import { SignSpaceGalaxy } from "@/components/SignSpaceGalaxy";
 import { MinimalPairPanel } from "@/components/MinimalPairPanel";
 import { CodebookGrid } from "@/components/CodebookGrid";
-import { AttentionStrip } from "@/components/AttentionStrip";
 import { FeatureWaterfall } from "@/components/FeatureWaterfall";
 import { PhonologicalAvatar } from "@/components/PhonologicalAvatar";
+import { GeodesicInterpolator } from "@/components/GeodesicInterpolator";
+import { AttentionStrip } from "@/components/AttentionStrip";
 import { useInference } from "@/hooks/useInference";
 import { TheoryPanel } from "@/components/TheoryPanel";
+import VOCAB_DATA from "@/public/data/vocab.json";
+
+const VOCAB_GLOSSES = Object.values(VOCAB_DATA.id_to_gloss) as string[];
 
 type SidebarTab = "live" | "analysis" | "theory";
-type AppMode = "recognize" | "generate";
+type AppMode = "recognize" | "generate" | "geodesic";
 
 export default function Home() {
-  const videoRef    = useRef<HTMLVideoElement>(null);
-  const shellRef    = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
   const [tab, setTab]         = useState<SidebarTab>("live");
   const [isCinema, setIsCinema] = useState(false);
   const [mode, setMode]       = useState<AppMode>("recognize");
+  const [canonicalGloss, setCanonicalGloss] = useState<string | null>(null);
+  const [videoMain, setVideoMain] = useState(false);
+  const [geodesicPair, setGeodesicPair] = useState<{ a: string; b: string } | null>(null);
+  const [autoGeo, setAutoGeo]           = useState<{ a: string; b: string } | null>(null);
+  const prevPredRef      = useRef<string | null>(null);
+  const autoGeoTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleShowCanonical = useCallback((gloss: string) => {
+    setCanonicalGloss(gloss);
+    setMode("generate");
+  }, []);
+
+  const handleModeChange = useCallback((m: AppMode) => {
+    if (m === "recognize") setCanonicalGloss(null);
+    setMode(m);
+  }, []);
+
+  const handleViewGeodesic = useCallback((glossA: string, glossB: string) => {
+    setGeodesicPair({ a: glossA, b: glossB });
+    setCanonicalGloss(null);
+    setMode("geodesic");
+  }, []);
 
   useMediaPipe({ videoRef });
   useInference();
@@ -34,6 +61,23 @@ export default function Home() {
   const landmarks      = useAppStore((s) => s.landmarks);
   const clearTranscript = useAppStore((s) => s.clearTranscript);
   const setStatus      = useAppStore((s) => s.setStatus);
+  const prediction     = useAppStore((s) => s.prediction);
+
+  // ── Auto-geodesic: fires on every new committed prediction pair ──
+  useEffect(() => {
+    if (!prediction) return;
+    const prev = prevPredRef.current;
+    prevPredRef.current = prediction.gloss;
+    if (!prev || prev === prediction.gloss) return;
+
+    if (autoGeoTimerRef.current) clearTimeout(autoGeoTimerRef.current);
+    setAutoGeo({ a: prev, b: prediction.gloss });
+    autoGeoTimerRef.current = setTimeout(() => setAutoGeo(null), 6000);
+  }, [prediction]);
+
+  useEffect(() => () => {
+    if (autoGeoTimerRef.current) clearTimeout(autoGeoTimerRef.current);
+  }, []);
 
   const hasHands = landmarks?.left_hand != null || landmarks?.right_hand != null;
 
@@ -81,28 +125,78 @@ export default function Home() {
       <MobileBanner />
 
       <div ref={shellRef} className="app-shell" data-cinema={isCinema || undefined}>
-        {!isCinema && <AppHeader mode={mode} onModeChange={setMode} />}
+        {!isCinema && (
+          <AppHeader
+            mode={mode}
+            onModeChange={handleModeChange}
+          />
+        )}
 
         <main className="app-main" style={
-          isCinema || mode === "generate"
+          isCinema || mode === "generate" || mode === "geodesic"
             ? { gridTemplateColumns: "1fr" }
             : undefined
         }>
           {/* ── Generate mode: full-area avatar ─────────────────── */}
           {mode === "generate" && (
             <div className="app-scene" style={{ overflow: "hidden" }}>
-              <PhonologicalAvatar />
+              <PhonologicalAvatar jumpGloss={canonicalGloss} />
             </div>
           )}
+
+          {/* ── Geodesic mode: phonological manifold navigation ──── */}
+          {mode === "geodesic" && (
+            <div className="app-scene" style={{ overflow: "hidden" }}>
+              <GeodesicInterpolator
+                key={geodesicPair ? `${geodesicPair.a}__${geodesicPair.b}` : "default"}
+                initialGlossA={geodesicPair?.a}
+                initialGlossB={geodesicPair?.b}
+              />
+            </div>
+          )}
+
+          {/* Hidden video element — always mounted so videoRef stays valid across mode switches */}
+          <video ref={videoRef} playsInline muted style={{ display: "none" }} />
 
           {/* ── Recognize mode: left scene ───────────────────────── */}
           {mode === "recognize" && (
           <div className="app-scene">
-            <video ref={videoRef} playsInline muted style={{ display: "none" }} />
 
-            {status === "live" && <HandCanvas2D videoRef={videoRef} />}
+            {/* ── Main scene ──────────────────────────────────── */}
+            {status === "live" && !videoMain && <HandScene3D />}
+            {status === "live" &&  videoMain && (
+              <div style={{ position: "absolute", inset: 0, zIndex: 2 }}>
+                <HandCanvas2D videoRef={videoRef} mirror />
+              </div>
+            )}
 
-            <PredictionOverlay />
+            {/* ── PIP (swaps on click) ─────────────────────────── */}
+            {status === "live" && (
+              <div
+                onClick={() => setVideoMain((v) => !v)}
+                title="Click to swap views"
+                style={{
+                  position: "absolute",
+                  bottom: 14,
+                  right: 14,
+                  width: 192,
+                  height: 144,
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  boxShadow: "0 4px 24px rgba(0,0,0,0.55)",
+                  zIndex: 6,
+                  cursor: "pointer",
+                }}
+              >
+                {videoMain
+                  ? <HandScene3D />
+                  : <HandCanvas2D videoRef={videoRef} mirror />}
+              </div>
+            )}
+
+            <PredictionOverlay onShowCanonical={handleShowCanonical} />
+            <AttentionStrip />
 
             {status === "idle" && (
               <CenteredMessage>Requesting camera…</CenteredMessage>
@@ -125,9 +219,6 @@ export default function Home() {
             {status === "live" && !hasHands && (
               <CenteredMessage muted>Show your hand to begin.</CenteredMessage>
             )}
-
-            {/* Attention strip — bottom of scene */}
-            <AttentionStrip />
 
             {/* Cinema hint */}
             {isCinema && (
@@ -179,11 +270,18 @@ export default function Home() {
                   <div className="sidebar-section">
                     <span className="section-header">Phonological Features</span>
                     <div style={{
-                      fontFamily: "var(--font-mono, monospace)",
-                      fontSize: 13, color: "var(--teal)",
                       borderLeft: "2px solid var(--teal)", paddingLeft: 10,
+                      display: "flex", flexDirection: "column", gap: 3,
                     }}>
-                      s = (H, L, O, M, N) · f_t ∈ ℝ⁵¹
+                      <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 12, color: "var(--ink2)", fontWeight: 600 }}>
+                        s = (H, L, O, M, N)
+                      </span>
+                      <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, color: "var(--ink4)" }}>
+                        f_t ∈ ℝ⁵¹ per frame
+                      </span>
+                      <span style={{ fontFamily: "var(--font-ui, sans-serif)", fontSize: 10, color: "var(--ink3)", lineHeight: 1.5 }}>
+                        Five simultaneous parameters extracted from hand landmarks each frame.
+                      </span>
                     </div>
                     <PhonologyBars />
                   </div>
@@ -195,12 +293,35 @@ export default function Home() {
 
                   <div className="sidebar-section">
                     <span className="section-header">Minimal Pair</span>
-                    <MinimalPairPanel />
+                    <MinimalPairPanel onViewGeodesic={handleViewGeodesic} />
                   </div>
 
                   <div className="sidebar-section">
                     <span className="section-header">Codebook Activations</span>
                     <CodebookGrid />
+                  </div>
+
+                  <div className="sidebar-section">
+                    <span className="section-header">Vocabulary · {VOCAB_GLOSSES.length} signs</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                      {VOCAB_GLOSSES.map((gloss) => (
+                        <span
+                          key={gloss}
+                          style={{
+                            fontFamily: "var(--font-mono, monospace)",
+                            fontSize: 9,
+                            color: "var(--ink4)",
+                            background: "var(--bg-raised)",
+                            border: "1px solid var(--rule)",
+                            borderRadius: 3,
+                            padding: "2px 5px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {gloss.toLowerCase().replace(/_/g, " ")}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </>
               )}
@@ -215,6 +336,19 @@ export default function Home() {
               {tab === "analysis" && (
                 <div className="sidebar-section" style={{ borderTop: "none", paddingTop: 0 }}>
                   <span className="section-header">Feature Waterfall · f_t ∈ ℝ⁵¹</span>
+                  <p style={{
+                    fontFamily: "var(--font-ui, sans-serif)",
+                    fontSize: 11, lineHeight: 1.5,
+                    color: "var(--ink3)", margin: "4px 0 8px",
+                  }}>
+                    Real-time phonological fingerprint of each frame. Each row is one feature
+                    dimension — <span style={{ color: "var(--coral)" }}>H</span> handshape,{" "}
+                    <span style={{ color: "var(--teal)" }}>L</span> location,{" "}
+                    <span style={{ color: "var(--sky)" }}>O</span> orientation,{" "}
+                    <span style={{ color: "var(--mint)" }}>M</span> movement,{" "}
+                    <span style={{ color: "var(--lav)" }}>N</span> non-manual.
+                    Color intensity = activation magnitude.
+                  </p>
                   <FeatureWaterfall />
 
                   {/* Keyboard hint */}
@@ -251,6 +385,73 @@ export default function Home() {
 
         <TranscriptStrip />
       </div>
+
+      {/* ── Auto-geodesic overlay ─────────────────────────────────── */}
+      {autoGeo && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 200,
+          background: "var(--bg-base)",
+          display: "flex", flexDirection: "column",
+          animation: "autoGeoFadeIn 0.22s ease forwards",
+        }}>
+          <style>{`
+            @keyframes autoGeoFadeIn { from { opacity: 0 } to { opacity: 1 } }
+            @keyframes autoGeoDrain  { from { width: 100% } to { width: 0% } }
+          `}</style>
+
+          {/* Top label */}
+          <div style={{
+            position: "absolute", top: 10, left: 14, zIndex: 5,
+            fontFamily: "var(--font-mono, monospace)", fontSize: 9,
+            color: "var(--ink5)", letterSpacing: "0.08em",
+            display: "flex", alignItems: "center", gap: 8,
+            pointerEvents: "none",
+          }}>
+            <span style={{ color: "var(--teal)" }}>auto-geodesic</span>
+            <span style={{ color: "var(--ink3)" }}>
+              {autoGeo.a.toLowerCase().replace(/_/g, " ")}
+            </span>
+            <span>→</span>
+            <span style={{ color: "var(--ink3)" }}>
+              {autoGeo.b.toLowerCase().replace(/_/g, " ")}
+            </span>
+          </div>
+
+          {/* Dismiss */}
+          <button
+            onClick={() => {
+              setAutoGeo(null);
+              if (autoGeoTimerRef.current) clearTimeout(autoGeoTimerRef.current);
+            }}
+            style={{
+              position: "absolute", top: 8, right: 12, zIndex: 5,
+              fontFamily: "var(--font-mono, monospace)", fontSize: 9,
+              letterSpacing: "0.06em",
+              background: "var(--bg-raised)", border: "1px solid var(--rule)",
+              borderRadius: 3, color: "var(--ink4)",
+              padding: "2px 10px", cursor: "pointer",
+            }}
+          >
+            esc
+          </button>
+
+          {/* Geodesic fills remaining space */}
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <GeodesicInterpolator
+              key={`auto_${autoGeo.a}__${autoGeo.b}`}
+              initialGlossA={autoGeo.a}
+              initialGlossB={autoGeo.b}
+            />
+          </div>
+
+          {/* Countdown drain bar */}
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, height: 2,
+            background: "var(--teal)",
+            animation: "autoGeoDrain 6000ms linear forwards",
+          }} />
+        </div>
+      )}
     </>
   );
 }

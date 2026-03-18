@@ -2,7 +2,7 @@
 
 import { useAppStore } from "@/store/appStore";
 
-type AppMode = "recognize" | "generate";
+type AppMode = "recognize" | "generate" | "geodesic";
 
 interface AppHeaderProps {
   mode?: AppMode;
@@ -14,8 +14,10 @@ export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) 
   const fps        = useAppStore((s) => s.fps);
   const latency_ms = useAppStore((s) => s.latency_ms);
   const prediction = useAppStore((s) => s.prediction);
+  const setStatus  = useAppStore((s) => s.setStatus);
 
-  const isLive = status === "live";
+  const isPaused   = status === "paused";
+  const canPause   = status === "live" || status === "paused";
 
   return (
     <header
@@ -47,7 +49,7 @@ export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) 
 
       {/* Mode toggle */}
       <div style={{ display: "flex", alignItems: "center", gap: 0, justifyContent: "center" }}>
-        {(["recognize", "generate"] as AppMode[]).map((m) => (
+        {(["recognize", "generate", "geodesic"] as AppMode[]).map((m) => (
           <button
             key={m}
             onClick={() => onModeChange?.(m)}
@@ -66,19 +68,38 @@ export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) 
               transition: "color 0.15s, border-color 0.15s",
             }}
           >
-            {m === "recognize" ? "Recognize" : "Generate"}
+            {m === "recognize" ? "Recognize" : m === "generate" ? "Generate" : "Geodesic"}
           </button>
         ))}
       </div>
 
-      {/* Right side: metrics + prediction badge */}
+      {/* Right side: controls + metrics + prediction */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {mode === "recognize" && isLive && (
+        {mode === "recognize" && (
+          <>
+            {/* Pause / Resume */}
+            {canPause && (
+              <IconButton
+                onClick={() => setStatus(isPaused ? "live" : "paused")}
+                title={isPaused ? "Resume (Space)" : "Pause (Space)"}
+                active={isPaused}
+              >
+                {isPaused ? <ResumeIcon /> : <PauseIcon />}
+              </IconButton>
+            )}
+          </>
+        )}
+
+        {/* FPS / latency / vocab badges */}
+        {mode === "recognize" && (status === "live" || isPaused) && (
           <>
             <MetricBadge value={`${fps}`} suffix="fps" />
             <MetricBadge value={`${latency_ms}`} suffix="ms" />
+            <MetricBadge value="50" suffix="signs" />
           </>
         )}
+
+        {/* Current prediction */}
         {mode === "recognize" && prediction && (
           <span
             style={{
@@ -95,6 +116,7 @@ export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) 
             {prediction.gloss}
           </span>
         )}
+
         {mode === "generate" && (
           <span style={{
             fontFamily: "var(--font-mono, monospace)",
@@ -105,8 +127,47 @@ export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) 
             s = (H, L, O, M, N) · forward kinematics
           </span>
         )}
+        {mode === "geodesic" && (
+          <span style={{
+            fontFamily: "var(--font-mono, monospace)",
+            fontSize: 9,
+            color: "var(--ink5)",
+            letterSpacing: "0.05em",
+          }}>
+            γ(α) = (1-α)·s_A + α·s_B · ℝ²⁸
+          </span>
+        )}
       </div>
     </header>
+  );
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────────────
+
+function IconButton({
+  children, onClick, title, active,
+}: { children: React.ReactNode; onClick: () => void; title?: string; active?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 28,
+        height: 28,
+        padding: 0,
+        background: active ? "var(--bg-raised)" : "none",
+        border: active ? "1px solid var(--teal)" : "1px solid transparent",
+        borderRadius: 5,
+        cursor: "pointer",
+        color: active ? "var(--teal)" : "var(--ink4)",
+        transition: "color 0.15s, border-color 0.15s, background 0.15s",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -126,5 +187,24 @@ function MetricBadge({ value, suffix }: { value: string; suffix: string }) {
       {value}
       <span style={{ color: "var(--ink4)", marginLeft: 2 }}>{suffix}</span>
     </span>
+  );
+}
+
+// ── SVG icons ──────────────────────────────────────────────────────────────────
+
+function PauseIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
+      <rect x={6} y={4} width={4} height={16} rx={1} />
+      <rect x={14} y={4} width={4} height={16} rx={1} />
+    </svg>
+  );
+}
+
+function ResumeIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="5,3 19,12 5,21" />
+    </svg>
   );
 }

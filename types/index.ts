@@ -29,10 +29,14 @@ export interface PhonologyFeatures {
   // Codebook activations (soft assignments, normalized 0–1 per entry)
   activations_H: Float32Array;  // (64,)
   activations_L: Float32Array;  // (32,)
+  activations_O: Float32Array;  // (16,)
+  activations_M: Float32Array;  // (64,)
 
   // Dominant codebook indices (argmax of activations)
   code_H: number;
   code_L: number;
+  code_O: number;
+  code_M: number;
 
   // Scalar norms per component (displayed below bars)
   norm_H: number;
@@ -49,6 +53,7 @@ export interface InferenceResult {
   confidence: number;         // 0–1
   top_k: Array<{ gloss: string; confidence: number }>;
   attn_weights?: Float32Array; // (seq_len,) attention weights
+  allProbs?: Float32Array;     // (vocab_size,) full softmax — sent with live messages for globe viz
   timestamp_ms: number;
 }
 
@@ -70,7 +75,9 @@ export interface AppState {
   landmarks: Landmarks | null;
   phonology: PhonologyFeatures | null;
   prediction: InferenceResult | null;
+  candidate:  InferenceResult | null;  // live estimate before threshold commit
   transcript: TranscriptEntry[];
+  signFrames: number;                  // frames accumulated in current sign buffer
 
   // Actions
   setStatus: (s: AppStatus) => void;
@@ -79,6 +86,8 @@ export interface AppState {
   setLandmarks: (l: Landmarks | null) => void;
   setPhonology: (p: PhonologyFeatures | null) => void;
   setPrediction: (r: InferenceResult | null) => void;
+  setCandidate:  (r: InferenceResult | null) => void;
+  setSignFrames: (n: number) => void;
   pushTranscript: (entry: TranscriptEntry) => void;
   clearTranscript: () => void;
 }
@@ -102,12 +111,14 @@ export type MediaPipeWorkerOut =
 
 export type InferenceWorkerIn =
   | { type: "init"; modelBuffer: ArrayBuffer; origin: string }
-  | { type: "features"; data: ArrayBuffer; timestamp_ms: number };  // (46,) float32
+  | { type: "features"; data: ArrayBuffer };  // (46,) float32
 
 export type InferenceWorkerOut =
   | { type: "ready" }
   | { type: "error"; message: string }
-  | { type: "result"; data: InferenceResult };
+  | { type: "result"; data: InferenceResult }
+  | { type: "live";   data: InferenceResult }   // throttled live candidate, any confidence
+  | { type: "frames"; count: number };           // ring-buffer size, sent every frame
 
 // ─── Data file types (vocab.json, sign_space.json) ─────────────
 

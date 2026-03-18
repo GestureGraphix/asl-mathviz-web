@@ -1,15 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import {
-  HandLandmarker,
-  PoseLandmarker,
-  FilesetResolver,
-} from "@mediapipe/tasks-vision";
 import { useAppStore } from "@/store/appStore";
 import { extractFeatures } from "@/lib/features";
 import { pushToFeatureBuffer } from "@/lib/featureBuffer";
-import type { Landmarks } from "@/types";
+import type { MediaPipeWorkerOut, Landmarks } from "@/types";
 
 interface UseMediaPipeOptions {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -17,31 +12,100 @@ interface UseMediaPipeOptions {
 }
 
 export function useMediaPipe({ videoRef, enabled = true }: UseMediaPipeOptions) {
-  const animFrameRef  = useRef<number>(0);
-  const handRef       = useRef<HandLandmarker | null>(null);
-  const poseRef       = useRef<PoseLandmarker | null>(null);
-  const frameCountRef = useRef(0);
-  const lastFpsRef    = useRef(0);
-  const fpsCountRef   = useRef(0);
+  const workerRef   = useRef<Worker | null>(null);
+  const rafRef      = useRef(0);
+  const pendingRef  = useRef(false);
+  const lastFpsRef  = useRef(0);
+  const fpsCountRef = useRef(0);
 
   const setStatus = useAppStore((s) => s.setStatus);
   const setFps    = useAppStore((s) => s.setFps);
 
   useEffect(() => {
     if (!enabled) return;
-
     let cancelled = false;
+    let cameraStream: MediaStream | null = null;
+
+    const worker = new Worker(
+      new URL("../workers/mediapipe.worker.ts", import.meta.url),
+      { type: "module" }
+    );
+    workerRef.current = worker;
+
+    worker.onmessage = (e: MessageEvent<MediaPipeWorkerOut>) => {
+      const msg = e.data;
+      if (msg.type === "ready") {
+        setStatus("live");
+        rafRef.current = requestAnimationFrame(sendFrame);
+      } else if (msg.type === "error") {
+        console.error("[mediapipe worker]", msg.message);
+        setStatus("error");
+      } else if (msg.type === "landmarks") {
+        pendingRef.current = false;
+        const d = msg.data;
+        const landmarks: Landmarks = {
+          timestamp_ms: d.timestamp_ms,
+          ...(d.left_hand  && { left_hand:  new Float32Array(d.left_hand)  }),
+          ...(d.right_hand && { right_hand: new Float32Array(d.right_hand) }),
+          ...(d.pose       && { pose:       new Float32Array(d.pose)       }),
+          ...(d.face       && { face:       new Float32Array(d.face)       }),
+        };
+        const features = extractFeatures(landmarks);
+        pushToFeatureBuffer(features.feature_vector_51);
+        useAppStore.setState({
+          landmarks,
+          phonology: features,
+          latency_ms: Math.round(performance.now() - d.timestamp_ms),
+        });
+      }
+    };
+
+    function sendFrame() {
+      if (cancelled) return;
+      rafRef.current = requestAnimationFrame(sendFrame);
+
+      const video = videoRef.current;
+      if (!video) return;
+
+      const appStatus = useAppStore.getState().status;
+      if (appStatus === "paused") return;
+
+      if (video.readyState < 2) return;
+
+      const now = performance.now();
+      fpsCountRef.current++;
+      if (now - lastFpsRef.current >= 1000) {
+        setFps(fpsCountRef.current);
+        fpsCountRef.current = 0;
+        lastFpsRef.current = now;
+      }
+
+      if (pendingRef.current) return;
+      pendingRef.current = true;
+
+      createImageBitmap(video).then((bitmap) => {
+        if (cancelled) { bitmap.close(); return; }
+        workerRef.current?.postMessage(
+          { type: "frame", bitmap, timestamp_ms: now },
+          [bitmap]
+        );
+      }).catch(() => {
+        pendingRef.current = false;
+      });
+    }
 
     async function setup() {
-      // 1 — request webcam
+      const video = videoRef.current;
+      if (!video) return;
+
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        cameraStream = await navigator.mediaDevices.getUserMedia({
           video: { width: 640, height: 480, facingMode: "user" },
         });
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
-        const video = videoRef.current;
-        if (!video) return;
-        video.srcObject = stream;
+        if (cancelled) { cameraStream.getTracks().forEach(t => t.stop()); return; }
+        video.removeAttribute("src");
+        video.load();
+        video.srcObject = cameraStream;
         await video.play();
       } catch {
         setStatus("error");
@@ -49,138 +113,22 @@ export function useMediaPipe({ videoRef, enabled = true }: UseMediaPipeOptions) 
       }
 
       setStatus("loading");
-
-      // 2 — initialise MediaPipe from local WASM (no CDN dependency)
-      try {
-        const vision = await FilesetResolver.forVisionTasks("/wasm");
-        if (cancelled) return;
-
-        // "GPU" = WebGL2-accelerated inference; falls back to XNNPACK CPU
-        // automatically if WebGL2 is unavailable — both are fast.
-        const delegate = "GPU";
-
-        [handRef.current, poseRef.current] = await Promise.all([
-          HandLandmarker.createFromOptions(vision, {
-            baseOptions: {
-              modelAssetPath:
-                "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-              delegate,
-            },
-            runningMode: "VIDEO",
-            numHands: 2,
-            minHandDetectionConfidence: 0.5,
-            minHandPresenceConfidence: 0.5,
-            minTrackingConfidence: 0.5,
-          }),
-          PoseLandmarker.createFromOptions(vision, {
-            baseOptions: {
-              modelAssetPath:
-                "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
-              delegate,
-            },
-            runningMode: "VIDEO",
-            numPoses: 1,
-            minPoseDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5,
-          }),
-        ]);
-      } catch (err) {
-        console.error("[MediaPipe init]", err);
-        setStatus("error");
-        return;
-      }
-
-      if (cancelled) return;
-      setStatus("live");
-      animFrameRef.current = requestAnimationFrame(processFrame);
-    }
-
-    function processFrame() {
-      const video = videoRef.current;
-      const hand  = handRef.current;
-      const pose  = poseRef.current;
-
-      if (!video || !hand || !pose || video.readyState < 2) {
-        animFrameRef.current = requestAnimationFrame(processFrame);
-        return;
-      }
-
-      const t0 = performance.now();
-      frameCountRef.current++;
-
-      const handResult = hand.detectForVideo(video, t0);
-      const poseResult = pose.detectForVideo(video, t0);
-
-      // ── Build landmark arrays ──────────────────────────────
-      let left_hand: Float32Array | undefined;
-      let right_hand: Float32Array | undefined;
-
-      for (let i = 0; i < handResult.landmarks.length; i++) {
-        const lms  = handResult.landmarks[i];
-        const side = handResult.handedness[i]?.[0]?.categoryName;
-        const arr  = new Float32Array(63);
-        for (let j = 0; j < 21; j++) {
-          arr[j * 3]     = lms[j].x;
-          arr[j * 3 + 1] = lms[j].y;
-          arr[j * 3 + 2] = lms[j].z;
-        }
-        // Front-facing camera: labels are mirrored
-        if (side === "Left") right_hand = arr;
-        else left_hand = arr;
-      }
-
-      let poseLms: Float32Array | undefined;
-      if (poseResult.landmarks?.[0]) {
-        poseLms = new Float32Array(99);
-        for (let j = 0; j < 33; j++) {
-          poseLms[j * 3]     = poseResult.landmarks[0][j].x;
-          poseLms[j * 3 + 1] = poseResult.landmarks[0][j].y;
-          poseLms[j * 3 + 2] = poseResult.landmarks[0][j].z;
-        }
-      }
-
-      const landmarks: Landmarks = {
-        timestamp_ms: t0,
-        ...(left_hand  && { left_hand }),
-        ...(right_hand && { right_hand }),
-        ...(poseLms    && { pose: poseLms }),
-      };
-
-      // Skip feature extraction + store updates when paused
-      const currentStatus = useAppStore.getState().status;
-      if (currentStatus === "paused") {
-        animFrameRef.current = requestAnimationFrame(processFrame);
-        return;
-      }
-
-      const features = extractFeatures(landmarks);
-      pushToFeatureBuffer(features.feature_vector_51);
-      useAppStore.setState({
-        landmarks,
-        phonology: features,
-        latency_ms: Math.round(performance.now() - t0),
-      });
-
-      // FPS counter
-      fpsCountRef.current++;
-      if (t0 - lastFpsRef.current >= 1000) {
-        setFps(fpsCountRef.current);
-        fpsCountRef.current = 0;
-        lastFpsRef.current  = t0;
-      }
-
-      animFrameRef.current = requestAnimationFrame(processFrame);
+      worker.postMessage({ type: "init" });
     }
 
     setup();
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(animFrameRef.current);
-      const stream = videoRef.current?.srcObject as MediaStream | null;
-      stream?.getTracks().forEach(t => t.stop());
-      handRef.current?.close();
-      poseRef.current?.close();
+      cancelAnimationFrame(rafRef.current);
+      worker.terminate();
+      workerRef.current = null;
+      pendingRef.current = false;
+
+      const v = videoRef.current;
+      if (v) { v.pause(); v.srcObject = null; v.removeAttribute("src"); v.load(); }
+
+      if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
     };
   }, [enabled]); // eslint-disable-line react-hooks/exhaustive-deps
 }

@@ -6,6 +6,12 @@ import { OrbitControls, Text } from "@react-three/drei";
 import * as THREE from "three";
 import { useAppStore } from "@/store/appStore";
 import RAW_DATA from "@/public/data/sign_space.json";
+import VOCAB from "@/public/data/vocab.json";
+
+// gloss → softmax label index (matching inference worker's idToGloss)
+const GLOSS_TO_LABEL: Record<string, number> = Object.fromEntries(
+  Object.entries(VOCAB.id_to_gloss).map(([k, v]) => [v, Number(k)])
+);
 
 // ── Data ───────────────────────────────────────────────────────────
 
@@ -140,19 +146,71 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
   const targetPos    = useRef(new THREE.Vector3(0, 0, -99));
   const targetCamDir = useRef<THREE.Vector3 | null>(null);
 
+  // Floating prediction label
+  const [predLabel, setPredLabel] = useState<{ gloss: string; color: string } | null>(null);
+  const labelGroupRef = useRef<THREE.Group>(null);
+  const labelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (labelTimerRef.current) clearTimeout(labelTimerRef.current); }, []);
+
   // Keep hoveredId in a ref so useFrame can read it without stale closure
   const hoveredIdRef = useRef(hoveredId);
   useEffect(() => { hoveredIdRef.current = hoveredId; }, [hoveredId]);
 
   const dotMats = useMemo(
-    () => SIGNS.map((s) => new THREE.MeshBasicMaterial({ color: s.color })),
+    () => SIGNS.map((s) => new THREE.MeshBasicMaterial({ color: s.color, transparent: true, opacity: 0.8 })),
     [],
   );
+
+  // Smoothed probability cloud — lerps toward allProbs, decays to 0 when no candidate
+  const smoothRef = useRef<Float32Array>(new Float32Array(SIGNS.length));
   // Radius=1 geometry — scaled per-frame to maintain constant screen size
   const dotGeo    = useMemo(() => new THREE.SphereGeometry(1, 8, 8), []);
   const cursorGeo = useMemo(() => new THREE.SphereGeometry(1, 12, 12), []);
 
-  useFrame(({ camera }) => {
+  // ── Comet trail: live probability-centroid trajectory on S² ──────
+  const TRAIL_N       = 22;
+  const trailRef      = useRef<THREE.Vector3[]>([]);
+  const lastCandTs    = useRef<number>(-1);
+  const cometTarget   = useRef(new THREE.Vector3());
+  const cometPos      = useRef(new THREE.Vector3());
+  const cometHasData  = useRef(false);
+  const cometHeadRef  = useRef<THREE.Mesh>(null);
+  const cometGlowRef  = useRef<THREE.Mesh>(null);
+  const trailRefs     = useRef<(THREE.Mesh | null)[]>(Array(TRAIL_N).fill(null));
+  const trailFrameCtr = useRef(0);
+  const cometFlash    = useRef(0);
+
+  const cometHeadGeo = useMemo(() => new THREE.SphereGeometry(1, 12, 12), []);
+  const cometGlowGeo = useMemo(() => new THREE.SphereGeometry(1, 8,  8),  []);
+  const trailGeo     = useMemo(() => new THREE.SphereGeometry(1, 6,  6),  []);
+  const cometHeadMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: "#ffffff", emissive: "#7dcfe0", emissiveIntensity: 2.8,
+    roughness: 0.05,
+  }), []);
+  const cometGlowMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: "#7dcfe0", transparent: true, opacity: 0.13, depthWrite: false,
+  }), []);
+  const trailMats = useMemo(() =>
+    Array.from({ length: TRAIL_N }, (_, i) =>
+      new THREE.MeshBasicMaterial({
+        color: "#7dcfe0", transparent: true,
+        opacity: Math.pow(1 - i / TRAIL_N, 1.8) * 0.55,
+        depthWrite: false,
+      })
+    ), []);
+
+  useFrame(({ camera, clock }) => {
+    // ── Probability cloud: lerp smoothed probs toward current candidate ──
+    const allProbs = useAppStore.getState().candidate?.allProbs ?? null;
+    const smooth = smoothRef.current;
+    let maxSmooth = 0;
+    for (let i = 0; i < SIGNS.length; i++) {
+      const labelIdx = GLOSS_TO_LABEL[SIGNS[i].gloss] ?? -1;
+      const target = (allProbs && labelIdx >= 0) ? allProbs[labelIdx] : 0;
+      smooth[i] = smooth[i] * 0.82 + target * 0.18;
+      if (smooth[i] > maxSmooth) maxSmooth = smooth[i];
+    }
+
     // ── Hemisphere culling + uniform dot size ─────────────────────
     const camNorm = camera.position.clone().normalize();
     for (let i = 0; i < SIGNS.length; i++) {
@@ -166,7 +224,14 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
       if (onFront) {
         const dist  = camera.position.distanceTo(SIGN_POS[i]);
         const hov   = hoveredIdRef.current === SIGNS[i].id;
-        dot.scale.setScalar(SCALE_K * dist * (hov ? 2.4 : 1));
+
+        // Probability-scaled size and opacity
+        const norm  = maxSmooth > 0.001 ? smooth[i] / maxSmooth : 0;
+        const scale = maxSmooth > 0.001 ? Math.max(0.22, norm * 2.6) : 1;
+        const opacity = maxSmooth > 0.001 ? Math.max(0.06, norm * 0.9) : 0.8;
+
+        dot.scale.setScalar(SCALE_K * dist * (hov ? 2.4 : scale));
+        dotMats[i].opacity = opacity;
       }
     }
 
@@ -174,6 +239,7 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
     const pred = useAppStore.getState().prediction;
     if (pred && pred.timestamp_ms !== lastPredTs.current) {
       lastPredTs.current = pred.timestamp_ms;
+      cometFlash.current = 1.0;
       const idx = GLOSS_TO_IDX[pred.gloss];
       if (idx !== undefined) {
         targetPos.current.copy(SIGN_POS[idx]);
@@ -181,7 +247,18 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
         glowRef.current    = 1.0;
         // Globe rotates to bring this sign to face the camera
         targetCamDir.current = SIGN_POS[idx].clone().normalize();
+        // Floating label
+        const signColor = SIGNS[idx]?.color ?? "#ffffff";
+        setPredLabel({ gloss: pred.gloss, color: signColor });
+        if (labelTimerRef.current) clearTimeout(labelTimerRef.current);
+        labelTimerRef.current = setTimeout(() => setPredLabel(null), 3000);
       }
+    }
+
+    // ── Position floating label just outside globe surface at cursor ──
+    if (labelGroupRef.current && cursorRef.current && hasTarget.current) {
+      const outward = cursorRef.current.position.clone().normalize();
+      labelGroupRef.current.position.copy(outward.multiplyScalar(R + 0.42));
     }
     if (!cursorRef.current) return;
     if (hasTarget.current) {
@@ -203,12 +280,84 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
       const camDir  = camera.position.clone().normalize();
       if (camDir.dot(targetCamDir.current) < 0.998) {
         const desired = targetCamDir.current.clone().multiplyScalar(camDist);
-        camera.position.lerp(desired, 0.018);
+        camera.position.lerp(desired, 0.06);
         camera.position.setLength(camDist);
         controlsRef.current?.update();
       } else {
         targetCamDir.current = null;
       }
+    }
+
+    // ── Comet: probability-centroid trajectory on S² ──────────────
+    const cand = useAppStore.getState().candidate;
+    if (cand?.allProbs && cand.timestamp_ms !== lastCandTs.current) {
+      lastCandTs.current = cand.timestamp_ms;
+      let cx = 0, cy = 0, cz = 0;
+      for (let i = 0; i < SIGNS.length; i++) {
+        const li = GLOSS_TO_LABEL[SIGNS[i].gloss] ?? -1;
+        const p  = li >= 0 ? (cand.allProbs[li] ?? 0) : 0;
+        cx += SIGN_POS[i].x * p;
+        cy += SIGN_POS[i].y * p;
+        cz += SIGN_POS[i].z * p;
+      }
+      const len = Math.sqrt(cx * cx + cy * cy + cz * cz);
+      if (len > 0.01) {
+        cometTarget.current.set(cx / len * R, cy / len * R, cz / len * R);
+        cometHasData.current = true;
+      }
+    }
+
+    if (cometHasData.current) {
+      // Smooth comet position toward target
+      cometPos.current.lerp(cometTarget.current, 0.12);
+
+      // Stamp a trail point every 8 frames
+      trailFrameCtr.current++;
+      if (trailFrameCtr.current >= 8) {
+        trailFrameCtr.current = 0;
+        trailRef.current.unshift(cometPos.current.clone());
+        if (trailRef.current.length > TRAIL_N) trailRef.current.pop();
+      }
+
+      const t    = clock.getElapsedTime();
+      const pulse = 1 + 0.22 * Math.sin(t * 5.5);
+      const flash = cometFlash.current > 0.01 ? cometFlash.current : 0;
+      cometFlash.current *= 0.88;
+
+      if (cometHeadRef.current) {
+        cometHeadRef.current.visible = true;
+        cometHeadRef.current.position.copy(cometPos.current);
+        const d = camera.position.distanceTo(cometPos.current);
+        cometHeadRef.current.scale.setScalar(SCALE_K * d * (3.2 + flash * 5.0) * pulse);
+        (cometHeadRef.current.material as THREE.MeshStandardMaterial).emissiveIntensity =
+          2.8 + flash * 4.0;
+      }
+      if (cometGlowRef.current) {
+        cometGlowRef.current.visible = true;
+        cometGlowRef.current.position.copy(cometPos.current);
+        const d = camera.position.distanceTo(cometPos.current);
+        cometGlowRef.current.scale.setScalar(SCALE_K * d * (9.0 + flash * 12.0));
+        (cometGlowRef.current.material as THREE.MeshBasicMaterial).opacity =
+          0.13 + flash * 0.25;
+      }
+
+      const trail = trailRef.current;
+      for (let i = 0; i < TRAIL_N; i++) {
+        const m = trailRefs.current[i];
+        if (!m) continue;
+        if (i < trail.length) {
+          m.position.copy(trail[i]);
+          const d = camera.position.distanceTo(trail[i]);
+          m.scale.setScalar(SCALE_K * d * 2.0 * (1 - i / TRAIL_N));
+          m.visible = true;
+        } else {
+          m.visible = false;
+        }
+      }
+    } else {
+      if (cometHeadRef.current) cometHeadRef.current.visible = false;
+      if (cometGlowRef.current) cometGlowRef.current.visible = false;
+      for (const m of trailRefs.current) if (m) m.visible = false;
     }
   });
 
@@ -252,6 +401,42 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
       <mesh ref={cursorRef} geometry={cursorGeo}>
         <meshBasicMaterial color="#ffffff" transparent opacity={0} depthWrite={false} />
       </mesh>
+
+      {/* Floating prediction label — outside globe surface, follows cursor */}
+      {predLabel && (
+        <group ref={labelGroupRef}>
+          <Text
+            fontSize={0.18}
+            color={predLabel.color}
+            fillOpacity={0.97}
+            anchorX="center"
+            anchorY="middle"
+            renderOrder={4}
+            outlineWidth={0.012}
+            outlineColor="#050d16"
+          >
+            {predLabel.gloss.replace(/_/g, " ")}
+          </Text>
+        </group>
+      )}
+
+      {/* Comet glow halo — rendered behind head */}
+      <mesh ref={cometGlowRef} geometry={cometGlowGeo} material={cometGlowMat} visible={false} renderOrder={1} />
+
+      {/* Comet head */}
+      <mesh ref={cometHeadRef} geometry={cometHeadGeo} material={cometHeadMat} visible={false} renderOrder={3} />
+
+      {/* Comet trail — fading spheres */}
+      {Array.from({ length: TRAIL_N }, (_, i) => (
+        <mesh
+          key={`trail-${i}`}
+          ref={el => { trailRefs.current[i] = el; }}
+          geometry={trailGeo}
+          material={trailMats[i]}
+          visible={false}
+          renderOrder={2}
+        />
+      ))}
 
       <OrbitControls
         ref={controlsRef}
@@ -304,6 +489,8 @@ export function SignSpaceGalaxy() {
           background: "#050d16",
           cursor: "grab",
           display: "block",
+          border: "1px solid rgba(0,0,0,0.14)",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.04)",
         }}
         gl={{ antialias: true }}
       >

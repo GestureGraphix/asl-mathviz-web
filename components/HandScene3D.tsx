@@ -42,16 +42,16 @@ function HandModel({ side, hexColor }: HandModelProps) {
   const jointMat = useMemo(() => new THREE.MeshStandardMaterial({
     color:             new THREE.Color(hexColor),
     emissive:          new THREE.Color(hexColor),
-    emissiveIntensity: 0.7,
-    roughness:         0.35,
+    emissiveIntensity: 1.2,
+    roughness:         0.30,
     metalness:         0.05,
   }), []);
 
   const boneMat = useMemo(() => new THREE.MeshStandardMaterial({
     color:             new THREE.Color(hexColor),
     emissive:          new THREE.Color(hexColor),
-    emissiveIntensity: 0.45,
-    roughness:         0.45,
+    emissiveIntensity: 0.80,
+    roughness:         0.40,
     metalness:         0.05,
   }), []);
 
@@ -158,6 +158,7 @@ function HandModel({ side, hexColor }: HandModelProps) {
 function Scene() {
   return (
     <>
+      <color attach="background" args={["#050d16"]} />
       {/* Soft ambient fill */}
       <ambientLight intensity={0.6} />
       {/* Key light from upper-right-front — creates shading on cylinders */}
@@ -188,32 +189,19 @@ export function HandScene3D() {
   }, [prediction]);
 
   return (
-    <>
-      {/* Dark veil so glowing geometry pops against the video */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(10, 7, 5, 0.40)",
-          pointerEvents: "none",
-          zIndex: 1,
-        }}
-      />
-
-      <Canvas
-        orthographic
-        camera={{ zoom: 1, position: [0, 0, 10], near: 0.1, far: 2000 }}
-        gl={{ alpha: true, antialias: true }}
-        style={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 2,
-          filter: glow ? "brightness(1.7) saturate(1.3)" : "none",
-          transition: "filter 0.7s ease-out",
-        }}
-      >
-        <Scene />
-      </Canvas>
-    </>
+    <Canvas
+      orthographic
+      camera={{ zoom: 1, position: [0, 0, 10], near: 0.1, far: 2000 }}
+      gl={{ antialias: true }}
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 2,
+        filter: glow ? "brightness(1.8) saturate(1.4)" : "none",
+        transition: "filter 0.6s ease-out",
+      }}
+    >
+      <Scene />
+    </Canvas>
   );
 }

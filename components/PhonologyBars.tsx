@@ -3,22 +3,21 @@
 import { useAppStore } from "@/store/appStore";
 
 const COMPONENTS = [
-  { key: "H", label: "H", color: "var(--coral)", desc: "Handshape" },
-  { key: "L", label: "L", color: "var(--teal)",  desc: "Location"  },
-  { key: "O", label: "O", color: "var(--sky)",   desc: "Orientation" },
-  { key: "M", label: "M", color: "var(--mint)",  desc: "Movement"  },
-  { key: "N", label: "N", color: "var(--lav)",   desc: "Non-manual" },
+  { key: "H", label: "H", color: "var(--coral)", desc: "Handshape",    dim: "ℝ¹⁶", note: "finger joint angles"       },
+  { key: "L", label: "L", color: "var(--teal)",  desc: "Location",     dim: "ℝ⁶",  note: "wrist position in space"   },
+  { key: "O", label: "O", color: "var(--sky)",   desc: "Orientation",  dim: "ℝ⁶",  note: "palm normal vector"         },
+  { key: "M", label: "M", color: "var(--mint)",  desc: "Movement",     dim: "ℝ¹⁸", note: "velocity + acceleration"   },
 ] as const;
 
 // Max expected norm per component for bar scaling (tuned empirically)
-const MAX_NORMS = { H: 1.8, L: 0.6, O: 1.0, M: 0.3, N: 0.4 };
+const MAX_NORMS = { H: 1.8, L: 0.6, O: 1.0, M: 0.3 };
 
 export function PhonologyBars() {
   const phonology = useAppStore((s) => s.phonology);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {COMPONENTS.map(({ key, label, color, desc }) => {
+      {COMPONENTS.map(({ key, label, color, desc, dim, note }) => {
         const norm  = phonology ? (phonology as any)[`norm_${key}`] as number : 0;
         const code  = phonology ? (phonology as any)[`code_${key}`] as number | undefined : undefined;
         const width = Math.min(1, norm / MAX_NORMS[key]) * 100;
@@ -85,18 +84,13 @@ export function PhonologyBars() {
             </div>
 
             {/* Sub-label */}
-            <div
-              style={{
-                fontFamily: "var(--font-ui, Figtree, sans-serif)",
-                fontSize: 9,
-                color: "var(--ink5)",
-                paddingLeft: 28,
-                marginTop: 2,
-              }}
-            >
-              {key === "O"
-                ? `${desc} · deviation = ${norm.toFixed(3)}`
-                : `${desc} · ‖u^${label}‖ = ${norm.toFixed(3)}`}
+            <div style={{ paddingLeft: 28, marginTop: 2, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <span style={{ fontFamily: "var(--font-ui, Figtree, sans-serif)", fontSize: 9, color: "var(--ink4)" }}>
+                {desc} · {dim} · {note}
+              </span>
+              <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 9, color: "var(--ink5)" }}>
+                ‖u‖ = {norm.toFixed(3)}
+              </span>
             </div>
           </div>
         );

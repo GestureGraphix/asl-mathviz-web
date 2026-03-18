@@ -9,6 +9,8 @@ export function useInference() {
 
   const phonology      = useAppStore((s) => s.phonology);
   const setPrediction  = useAppStore((s) => s.setPrediction);
+  const setCandidate   = useAppStore((s) => s.setCandidate);
+  const setSignFrames  = useAppStore((s) => s.setSignFrames);
   const pushTranscript = useAppStore((s) => s.pushTranscript);
 
   // Spin up worker once on mount
@@ -25,9 +27,14 @@ export function useInference() {
         console.log("[inference worker] ready");
       } else if (msg.type === "error") {
         console.error("[inference worker]", msg.message);
+      } else if (msg.type === "frames") {
+        setSignFrames(msg.count);
+      } else if (msg.type === "live") {
+        setCandidate(msg.data);
       } else if (msg.type === "result") {
         const result = msg.data;
-        if (result.confidence >= 0.7) {
+        setCandidate(null);  // clear live estimate on commit
+        if (result.confidence >= 0.65) {
           setPrediction(result);
           pushTranscript({
             gloss:        result.gloss,
@@ -47,7 +54,7 @@ export function useInference() {
       .catch((err) => console.error("[inference] model load failed:", err));
 
     return () => worker.terminate();
-  }, [setPrediction, pushTranscript]);
+  }, [setPrediction, setCandidate, setSignFrames, pushTranscript]);
 
   // Send each new feature vector to the worker
   useEffect(() => {

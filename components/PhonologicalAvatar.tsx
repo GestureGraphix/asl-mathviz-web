@@ -19,11 +19,25 @@
  * Animation replays the 30-frame trajectory extracted around the peak frame.
  */
 
+import katex from "katex";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import { useRef, useState, useMemo, useCallback } from "react";
+import { useRef, useState, useMemo, useCallback, useEffect } from "react";
 import * as THREE from "three";
 import SIGNS_RAW from "@/public/data/canonical_signs.json";
+
+// ── Pre-rendered KaTeX (runs once at module load) ──────────────────
+function tex(s: string) {
+  try { return katex.renderToString(s, { throwOnError: false }); }
+  catch { return s; }
+}
+const TEX = {
+  ft:    tex(String.raw`f_t \in \mathbb{R}^{51} = u^H \oplus u^L \oplus u^O \oplus u^M \oplus u^N`),
+  theta: tex(String.raw`\theta_k = \angle\!\bigl(v_{\scriptscriptstyle\mathrm{MCP},k} - v_w,\; v_{\scriptscriptstyle\mathrm{tip},k} - v_{\scriptscriptstyle\mathrm{MCP},k}\bigr)`),
+  pbar:  tex(String.raw`\bar{p} = \tfrac{1}{5}\!\sum_{k\,\in\,\{0,5,9,13,17\}} \tilde{x}_k`),
+  nhat:  tex(String.raw`\hat{n} = (v_1 \times v_2)\;/\;\lVert v_1 \times v_2 \rVert`),
+  delta: tex(String.raw`\Delta p,\;\Delta^2 p,\;\Delta n`),
+};
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -347,12 +361,10 @@ function MathPanel({ sign }: { sign: CanonicalSign }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 9, overflowY: "auto", height: "100%" }}>
 
       {/* s = (H, L, O, M, N) */}
-      <div style={{
-        borderLeft: "2px solid var(--teal)", paddingLeft: 8,
-        fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--teal)", lineHeight: 1.6,
-      }}>
-        s = (H, L, O, M, N)<br />
-        <span style={{ fontSize: 9, color: "var(--ink4)" }}>f_t ∈ ℝ⁵¹ = u^H ⊕ u^L ⊕ u^O ⊕ u^M ⊕ u^N</span>
+      <div style={{ borderLeft: "2px solid var(--teal)", paddingLeft: 8, display: "flex", flexDirection: "column", gap: 3 }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink2)", fontWeight: 600 }}>s = (H, L, O, M, N)</span>
+        <span style={{ fontSize: 9, color: "var(--ink3)" }} dangerouslySetInnerHTML={{ __html: TEX.ft }} />
+        <span style={{ fontFamily: "var(--font-ui, sans-serif)", fontSize: 9, color: "var(--ink3)", lineHeight: 1.4 }}>canonical sign decomposed into five phonological parameters</span>
       </div>
 
       <hr style={{ border: "none", borderTop: "1px solid var(--rule)", margin: 0 }} />
@@ -364,24 +376,26 @@ function MathPanel({ sign }: { sign: CanonicalSign }) {
           {" "}
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink4)" }}>u^H ∈ ℝ^16</span>
         </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink5)", marginBottom: 3, lineHeight: 1.5 }}>
-          θ_k = ∠(v_MCP,k − v_w, v_tip,k − v_MCP,k)
+        <div style={{ fontFamily: "var(--font-ui, sans-serif)", fontSize: 9, color: "var(--ink3)", marginBottom: 3 }}>
+          finger joint angles — 5 flexion + 3 spread
         </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink5)", marginBottom: 5 }}>
+        <div style={{ fontSize: 11, color: "var(--ink2)", marginBottom: 4, overflowX: "auto" }}
+          dangerouslySetInnerHTML={{ __html: TEX.theta }} />
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink3)", marginBottom: 5 }}>
           shape: <span style={{ color: "#e0686a" }}>{sign.handshape_name}</span>
           {hNorm && <> · ‖u^H‖ = <span style={{ color: "#e0686a" }}>{hNorm}</span></>}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {FINGER_NAMES.map((name, fi) => (
             <div key={name} style={{ display: "grid", gridTemplateColumns: "36px 1fr", gap: 4, alignItems: "center" }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink5)" }}>{name}</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink3)" }}>{name}</span>
               <MiniBar value={sign.u_H[fi] ?? 0} max={MAX_FLEX} color="#e0686a" />
             </div>
           ))}
           <div style={{ borderTop: "1px solid var(--rule)", marginTop: 3, paddingTop: 3 }}>
             {[0, 1, 2].map(si => (
               <div key={si} style={{ display: "grid", gridTemplateColumns: "36px 1fr", gap: 4, alignItems: "center", marginBottom: 2 }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--ink5)" }}>spr{si + 1}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--ink3)" }}>spr{si + 1}</span>
                 <MiniBar value={sign.u_H[5 + si] ?? 0} max={MAX_SPREAD} color="#c05068" />
               </div>
             ))}
@@ -398,10 +412,12 @@ function MathPanel({ sign }: { sign: CanonicalSign }) {
           {" "}
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink4)" }}>u^L ∈ ℝ^6</span>
         </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink5)", marginBottom: 3 }}>
-          p̄ = ⅕ Σ_&#123;k∈&#123;0,5,9,13,17&#125;&#125; x̃_k
+        <div style={{ fontFamily: "var(--font-ui, sans-serif)", fontSize: 9, color: "var(--ink3)", marginBottom: 3 }}>
+          average wrist position in signing space
         </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink5)", marginBottom: 2 }}>
+        <div style={{ fontSize: 11, color: "var(--ink2)", marginBottom: 4, overflowX: "auto" }}
+          dangerouslySetInnerHTML={{ __html: TEX.pbar }} />
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink3)", marginBottom: 2 }}>
           loc: <span style={{ color: "#3ea89f" }}>{sign.location_name}</span>
         </div>
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink4)" }}>
@@ -418,11 +434,13 @@ function MathPanel({ sign }: { sign: CanonicalSign }) {
           {" "}
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink4)" }}>u^O ∈ ℝ^6</span>
         </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink5)", marginBottom: 3 }}>
-          n̂ = (v₁ × v₂) / ‖v₁ × v₂‖
+        <div style={{ fontFamily: "var(--font-ui, sans-serif)", fontSize: 9, color: "var(--ink3)", marginBottom: 3 }}>
+          palm normal — which way the hand faces
         </div>
+        <div style={{ fontSize: 11, color: "var(--ink2)", marginBottom: 4, overflowX: "auto" }}
+          dangerouslySetInnerHTML={{ __html: TEX.nhat }} />
         {sign.orientation_name && (
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink5)", marginBottom: 2 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink3)", marginBottom: 2 }}>
             facing: <span style={{ color: "#5090d8" }}>{sign.orientation_name}</span>
           </div>
         )}
@@ -440,10 +458,12 @@ function MathPanel({ sign }: { sign: CanonicalSign }) {
           {" "}
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink4)" }}>u^M ∈ ℝ^18</span>
         </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink5)", marginBottom: 3 }}>
-          Δp, Δ²p, Δn — from 30-frame trajectory
+        <div style={{ fontFamily: "var(--font-ui, sans-serif)", fontSize: 9, color: "var(--ink3)", marginBottom: 3 }}>
+          velocity, acceleration, orientation change
         </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink5)", marginBottom: 2 }}>
+        <div style={{ fontSize: 11, color: "var(--ink2)", marginBottom: 2, overflowX: "auto" }}
+          dangerouslySetInnerHTML={{ __html: TEX.delta }} />
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink3)", marginBottom: 2 }}>
           motion: <span style={{ color: "#4dbb87" }}>{sign.movement_name}</span>
         </div>
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink4)" }}>
@@ -475,9 +495,16 @@ const CATEGORIES = Array.from(new Set(SIGNS.map(s => s.category)));
 
 // ── Main export ────────────────────────────────────────────────────
 
-export function PhonologicalAvatar() {
+export function PhonologicalAvatar({ jumpGloss }: { jumpGloss?: string | null }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [filterCat,   setFilterCat]   = useState<string>("all");
+
+  // Jump to a specific sign when triggered from Recognize mode
+  useEffect(() => {
+    if (!jumpGloss) return;
+    const idx = SIGNS.findIndex(s => s.gloss === jumpGloss);
+    if (idx >= 0) setSelectedIdx(idx);
+  }, [jumpGloss]);
 
   const sign = SIGNS[selectedIdx];
 
@@ -621,7 +648,7 @@ export function PhonologicalAvatar() {
         borderTop: "1px solid var(--rule)",
         display: "flex", gap: 14, alignItems: "center",
         flexShrink: 0,
-        fontFamily: "var(--font-mono, monospace)", fontSize: 9, color: "var(--ink5)",
+        fontFamily: "var(--font-mono, monospace)", fontSize: 9, color: "var(--ink4)",
       }}>
         <span>cat: <span style={{ color: sign.color }}>{sign.category}</span></span>
         <span>hand: <span style={{ color: "var(--ink4)" }}>{sign.dominant_hand}</span></span>

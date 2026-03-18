@@ -128,6 +128,20 @@ export const CodebookGrid = memo(function CodebookGrid() {
         activations={phonology?.activations_L ?? null}
         dominant={phonology?.code_L ?? -1}
       />
+      <Grid
+        label="O"
+        color="#8b7fd4"
+        count={16}
+        activations={phonology?.activations_O ?? null}
+        dominant={phonology?.code_O ?? -1}
+      />
+      <Grid
+        label="M"
+        color="#4dbb87"
+        count={64}
+        activations={phonology?.activations_M ?? null}
+        dominant={phonology?.code_M ?? -1}
+      />
     </div>
   );
 });
