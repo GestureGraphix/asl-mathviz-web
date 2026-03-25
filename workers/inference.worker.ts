@@ -23,10 +23,18 @@ const LIVE_EVERY = 15;  // send a live candidate every N frames (~500ms at 30fps
 
 // ── Softmax ───────────────────────────────────────────────────────
 function softmax(logits: Float32Array): Float32Array {
-  const max  = Math.max(...logits);
-  const exp  = logits.map((v) => Math.exp(v - max));
-  const sum  = exp.reduce((a, b) => a + b, 0);
-  return exp.map((v) => v / sum) as unknown as Float32Array;
+  let max = -Infinity;
+  for (let i = 0; i < logits.length; i++) {
+    if (logits[i] > max) max = logits[i];
+  }
+  const out = new Float32Array(logits.length);
+  let sum = 0;
+  for (let i = 0; i < logits.length; i++) {
+    out[i] = Math.exp(logits[i] - max);
+    sum += out[i];
+  }
+  for (let i = 0; i < out.length; i++) out[i] /= sum;
+  return out;
 }
 
 // ── Init ──────────────────────────────────────────────────────────
@@ -132,7 +140,10 @@ async function processFeatures(data: ArrayBuffer) {
     liveFrameCtr = 0;
     const live = await runInference();
     if (live) {
-      self.postMessage({ type: "live", data: live } satisfies InferenceWorkerOut);
+      const t: ArrayBuffer[] = [];
+      if (live.allProbs)     t.push(live.allProbs.buffer as ArrayBuffer);
+      if (live.attn_weights) t.push(live.attn_weights.buffer as ArrayBuffer);
+      self.postMessage({ type: "live", data: live } satisfies InferenceWorkerOut, t);
     }
   }
 
@@ -146,9 +157,21 @@ async function processFeatures(data: ArrayBuffer) {
     self.postMessage({ type: "frames", count: 0 } satisfies InferenceWorkerOut);
 
     if (result) {
-      self.postMessage({ type: "result", data: result } satisfies InferenceWorkerOut);
+      const t: ArrayBuffer[] = [];
+      if (result.allProbs)     t.push(result.allProbs.buffer as ArrayBuffer);
+      if (result.attn_weights) t.push(result.attn_weights.buffer as ArrayBuffer);
+      self.postMessage({ type: "result", data: result } satisfies InferenceWorkerOut, t);
     }
   }
+}
+
+// ── Reset ─────────────────────────────────────────────────────────
+function resetBuffers() {
+  ringBuffer.length = 0;
+  normBuffer.length = 0;
+  restCounter  = 0;
+  liveFrameCtr = 0;
+  self.postMessage({ type: "frames", count: 0 } satisfies InferenceWorkerOut);
 }
 
 // ── Message handler ───────────────────────────────────────────────
@@ -156,4 +179,5 @@ self.onmessage = async (e: MessageEvent<InferenceWorkerIn>) => {
   const msg = e.data;
   if (msg.type === "init")     await init(msg.modelBuffer, msg.origin);
   if (msg.type === "features") await processFeatures(msg.data);
+  if (msg.type === "reset")    resetBuffers();
 };

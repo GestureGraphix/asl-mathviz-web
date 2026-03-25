@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/appStore";
 import { extractFeatures } from "@/lib/features";
 import { pushToFeatureBuffer } from "@/lib/featureBuffer";
+import { inferenceWorkerBridge } from "@/lib/inferenceWorkerBridge";
 import type { MediaPipeWorkerOut, Landmarks } from "@/types";
 
 interface UseMediaPipeOptions {
@@ -17,6 +18,10 @@ export function useMediaPipe({ videoRef, enabled = true }: UseMediaPipeOptions) 
   const pendingRef  = useRef(false);
   const lastFpsRef  = useRef(0);
   const fpsCountRef = useRef(0);
+  const enabledRef  = useRef(enabled);
+
+  // Sync without restarting the camera stream
+  useEffect(() => { enabledRef.current = enabled; }, [enabled]);
 
   const setStatus = useAppStore((s) => s.setStatus);
   const setFps    = useAppStore((s) => s.setFps);
@@ -57,12 +62,24 @@ export function useMediaPipe({ videoRef, enabled = true }: UseMediaPipeOptions) 
           phonology: features,
           latency_ms: Math.round(performance.now() - d.timestamp_ms),
         });
+
+        // Forward feature vector directly to inference worker — bypasses
+        // Zustand/React so the phonology update above doesn't have to wait
+        // for a React re-render cycle before inference sees the frame.
+        const infWorker = inferenceWorkerBridge.current;
+        if (infWorker && enabledRef.current) {
+          const fv  = features.feature_vector;
+          const buf = fv.buffer.slice(fv.byteOffset, fv.byteOffset + fv.byteLength);
+          infWorker.postMessage({ type: "features", data: buf }, [buf]);
+        }
       }
     };
 
     function sendFrame() {
       if (cancelled) return;
       rafRef.current = requestAnimationFrame(sendFrame);
+
+      if (!enabledRef.current) return;
 
       const video = videoRef.current;
       if (!video) return;

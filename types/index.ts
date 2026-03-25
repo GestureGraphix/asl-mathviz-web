@@ -111,7 +111,8 @@ export type MediaPipeWorkerOut =
 
 export type InferenceWorkerIn =
   | { type: "init"; modelBuffer: ArrayBuffer; origin: string }
-  | { type: "features"; data: ArrayBuffer };  // (46,) float32
+  | { type: "features"; data: ArrayBuffer }  // (46,) float32
+  | { type: "reset" };                        // clear ring buffer, no inference
 
 export type InferenceWorkerOut =
   | { type: "ready" }

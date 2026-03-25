@@ -90,12 +90,12 @@ export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) 
           </>
         )}
 
-        {/* FPS / latency / vocab badges */}
+        {/* FPS / latency / live phonological code badges */}
         {mode === "recognize" && (status === "live" || isPaused) && (
           <>
             <MetricBadge value={`${fps}`} suffix="fps" />
             <MetricBadge value={`${latency_ms}`} suffix="ms" />
-            <MetricBadge value="50" suffix="signs" />
+            <LiveCodeReadout />
           </>
         )}
 
@@ -143,6 +143,45 @@ export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) 
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
+
+// Isolated component so phonology updates don't re-render the whole header
+function LiveCodeReadout() {
+  const phonology = useAppStore((s) => s.phonology);
+  if (!phonology) return null;
+
+  const params: [string, number, string][] = [
+    ["H", phonology.code_H, "var(--coral)"],
+    ["L", phonology.code_L, "var(--teal)"],
+    ["O", phonology.code_O, "var(--sky)"],
+    ["M", phonology.code_M, "var(--mint)"],
+  ];
+
+  return (
+    <span
+      style={{
+        fontFamily: "var(--font-mono, monospace)",
+        fontSize: 10,
+        background: "var(--bg-raised)",
+        border: "1px solid var(--rule)",
+        borderRadius: 4,
+        padding: "2px 8px",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      {params.map(([key, code, color]) => (
+        <span key={key}>
+          <span style={{ color, fontWeight: 600 }}>{key}</span>
+          <span style={{ color: "var(--ink4)" }}>:</span>
+          <span style={{ color: "var(--ink3)" }}>
+            #{String(code).padStart(2, "0")}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
 
 function IconButton({
   children, onClick, title, active,

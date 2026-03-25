@@ -2,6 +2,11 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/store/appStore";
+import RAW_SPACE from "@/public/data/sign_space.json";
+
+const GLOSS_TO_COLOR: Record<string, string> = Object.fromEntries(
+  (RAW_SPACE as { gloss: string; color: string }[]).map((s) => [s.gloss, s.color])
+);
 
 export function PredictionOverlay({ onShowCanonical }: { onShowCanonical?: (gloss: string) => void }) {
   const prediction = useAppStore((s) => s.prediction);
@@ -136,22 +141,63 @@ export function PredictionOverlay({ onShowCanonical }: { onShowCanonical?: (glos
               {prediction.gloss.toLowerCase().replace(/_/g, " ")}
             </div>
 
-            <div
-              style={{
-                fontFamily: "var(--font-mono, monospace)",
-                fontSize: 12,
-                color: "rgba(255,255,255,0.85)",
-                textShadow: "0 1px 4px rgba(0,0,0,0.5)",
-                marginTop: 6,
-                letterSpacing: "0.02em",
-              }}
-            >
-              {Math.round(prediction.confidence * 100)}%
-              {prediction.top_k[1] && (
-                <span style={{ color: "rgba(255,255,255,0.5)", marginLeft: 12 }}>
-                  {prediction.top_k[1].gloss.toLowerCase()} {Math.round(prediction.top_k[1].confidence * 100)}%
-                </span>
-              )}
+            {/* Top-3 confidence bars */}
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 5 }}>
+              {prediction.top_k.slice(0, 3).map((entry, i) => {
+                const color = GLOSS_TO_COLOR[entry.gloss] ?? "#3ea89f";
+                const pct   = Math.round(entry.confidence * 100);
+                return (
+                  <div key={entry.gloss} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {/* Rank dot */}
+                    <span style={{
+                      width: 5, height: 5, borderRadius: "50%",
+                      background: i === 0 ? color : "rgba(255,255,255,0.22)",
+                      flexShrink: 0,
+                    }} />
+                    {/* Gloss label */}
+                    <span style={{
+                      fontFamily: "var(--font-mono, monospace)",
+                      fontSize: 10,
+                      color: i === 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.45)",
+                      width: 96,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      letterSpacing: "0.04em",
+                    }}>
+                      {entry.gloss.toLowerCase().replace(/_/g, " ")}
+                    </span>
+                    {/* Bar track */}
+                    <div style={{
+                      width: 80,
+                      height: 3,
+                      background: "rgba(255,255,255,0.08)",
+                      borderRadius: 2,
+                      overflow: "hidden",
+                    }}>
+                      <motion.div
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.35, ease: "easeOut" }}
+                        style={{
+                          height: "100%",
+                          background: i === 0 ? color : "rgba(255,255,255,0.25)",
+                          borderRadius: 2,
+                        }}
+                      />
+                    </div>
+                    {/* Percentage */}
+                    <span style={{
+                      fontFamily: "var(--font-mono, monospace)",
+                      fontSize: 10,
+                      color: i === 0 ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.35)",
+                      minWidth: 28,
+                      textAlign: "right",
+                    }}>
+                      {pct}%
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
             {onShowCanonical && (

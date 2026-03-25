@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useMemo, useCallback, useEffect } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Text } from "@react-three/drei";
 import * as THREE from "three";
 import { useAppStore } from "@/store/appStore";
@@ -57,11 +57,9 @@ const MINIMAL_PAIR_EDGES: [number, number][] = (() => {
   return edges;
 })();
 
-// Constant screen-size scale factor for dots
-// screen_radius_px = DOT_PX ⟹ mesh.scale = DOT_PX × tan(fov/2) / (canvasH/2) × dist
-// With fov=52, canvasH≈388: k = DOT_PX × 0.4877 / 194
-const DOT_PX = 7;   // target screen radius in pixels
-const SCALE_K = DOT_PX * Math.tan((52 * Math.PI) / 360) / (388 / 2);
+// DOT_PX is the target screen radius in pixels.
+// scaleK is recomputed each frame from the actual canvas height (see GlobeScene).
+const DOT_PX = 7;
 
 // ── Fibonacci sphere background ────────────────────────────────────
 
@@ -136,6 +134,11 @@ interface SceneProps {
 }
 
 function GlobeScene({ hoveredId, onHover }: SceneProps) {
+  // Dynamic scaleK — recomputed from actual canvas height each frame
+  const { size } = useThree();
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
+
   const groupRefs    = useRef<(THREE.Group  | null)[]>(Array(SIGNS.length).fill(null));
   const dotRefs      = useRef<(THREE.Mesh   | null)[]>(Array(SIGNS.length).fill(null));
   const cursorRef    = useRef<THREE.Mesh>(null);
@@ -200,6 +203,9 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
     ), []);
 
   useFrame(({ camera, clock }) => {
+    // Dynamic scaleK based on actual canvas height
+    const scaleK = DOT_PX * Math.tan((52 * Math.PI) / 360) / (sizeRef.current.height / 2);
+
     // ── Probability cloud: lerp smoothed probs toward current candidate ──
     const allProbs = useAppStore.getState().candidate?.allProbs ?? null;
     const smooth = smoothRef.current;
@@ -230,7 +236,7 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
         const scale = maxSmooth > 0.001 ? Math.max(0.22, norm * 2.6) : 1;
         const opacity = maxSmooth > 0.001 ? Math.max(0.06, norm * 0.9) : 0.8;
 
-        dot.scale.setScalar(SCALE_K * dist * (hov ? 2.4 : scale));
+        dot.scale.setScalar(scaleK * dist * (hov ? 2.4 : scale));
         dotMats[i].opacity = opacity;
       }
     }
@@ -264,7 +270,7 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
     if (hasTarget.current) {
       cursorRef.current.position.lerp(targetPos.current, 0.10);
       const dist = camera.position.distanceTo(cursorRef.current.position);
-      cursorRef.current.scale.setScalar(SCALE_K * dist * 1.5);
+      cursorRef.current.scale.setScalar(scaleK * dist * 1.5);
     }
     const mat = cursorRef.current.material as THREE.MeshBasicMaterial;
     if (glowRef.current > 0.01) {
@@ -328,7 +334,7 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
         cometHeadRef.current.visible = true;
         cometHeadRef.current.position.copy(cometPos.current);
         const d = camera.position.distanceTo(cometPos.current);
-        cometHeadRef.current.scale.setScalar(SCALE_K * d * (3.2 + flash * 5.0) * pulse);
+        cometHeadRef.current.scale.setScalar(scaleK * d * (3.2 + flash * 5.0) * pulse);
         (cometHeadRef.current.material as THREE.MeshStandardMaterial).emissiveIntensity =
           2.8 + flash * 4.0;
       }
@@ -336,7 +342,7 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
         cometGlowRef.current.visible = true;
         cometGlowRef.current.position.copy(cometPos.current);
         const d = camera.position.distanceTo(cometPos.current);
-        cometGlowRef.current.scale.setScalar(SCALE_K * d * (9.0 + flash * 12.0));
+        cometGlowRef.current.scale.setScalar(scaleK * d * (9.0 + flash * 12.0));
         (cometGlowRef.current.material as THREE.MeshBasicMaterial).opacity =
           0.13 + flash * 0.25;
       }
@@ -348,7 +354,7 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
         if (i < trail.length) {
           m.position.copy(trail[i]);
           const d = camera.position.distanceTo(trail[i]);
-          m.scale.setScalar(SCALE_K * d * 2.0 * (1 - i / TRAIL_N));
+          m.scale.setScalar(scaleK * d * 2.0 * (1 - i / TRAIL_N));
           m.visible = true;
         } else {
           m.visible = false;
@@ -484,7 +490,7 @@ export function SignSpaceGalaxy() {
         camera={{ position: [0, 0.2, 3.5], fov: 52 }}
         style={{
           width: "100%",
-          aspectRatio: "1 / 1",
+          height: 340,
           borderRadius: 6,
           background: "#050d16",
           cursor: "grab",

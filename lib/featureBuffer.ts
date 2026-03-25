@@ -17,3 +17,5 @@ export function pushToFeatureBuffer(fv: Float32Array): void {
   featureBuf.push(fv);
   writeCount++;
 }
+
+export function getWriteCount(): number { return writeCount; }

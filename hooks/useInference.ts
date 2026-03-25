@@ -2,12 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/appStore";
+import { inferenceWorkerBridge } from "@/lib/inferenceWorkerBridge";
 import type { InferenceWorkerOut } from "@/types";
 
-export function useInference() {
-  const workerRef = useRef<Worker | null>(null);
+export function useInference({ enabled = true }: { enabled?: boolean } = {}) {
+  const workerRef  = useRef<Worker | null>(null);
+  const enabledRef = useRef(enabled);
 
-  const phonology      = useAppStore((s) => s.phonology);
   const setPrediction  = useAppStore((s) => s.setPrediction);
   const setCandidate   = useAppStore((s) => s.setCandidate);
   const setSignFrames  = useAppStore((s) => s.setSignFrames);
@@ -20,11 +21,13 @@ export function useInference() {
       { type: "module" }
     );
     workerRef.current = worker;
+    // Expose to useMediaPipe for direct feature forwarding (no Zustand round-trip)
+    inferenceWorkerBridge.current = worker;
 
     worker.onmessage = (e: MessageEvent<InferenceWorkerOut>) => {
       const msg = e.data;
       if (msg.type === "ready") {
-        console.log("[inference worker] ready");
+        // worker ready
       } else if (msg.type === "error") {
         console.error("[inference worker]", msg.message);
       } else if (msg.type === "frames") {
@@ -53,16 +56,18 @@ export function useInference() {
       })
       .catch((err) => console.error("[inference] model load failed:", err));
 
-    return () => worker.terminate();
-  }, [setPrediction, setCandidate, setSignFrames, pushTranscript]);
+    return () => {
+      inferenceWorkerBridge.current = null;
+      worker.terminate();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Send each new feature vector to the worker
+  // Reset worker buffers when switching away from recognize mode
   useEffect(() => {
-    const worker = workerRef.current;
-    if (!worker || !phonology) return;
-
-    const fv = phonology.feature_vector;  // Float32Array (46,)
-    const buf = fv.buffer.slice(fv.byteOffset, fv.byteOffset + fv.byteLength);
-    worker.postMessage({ type: "features", data: buf }, [buf]);
-  }, [phonology]);
+    const wasEnabled = enabledRef.current;
+    enabledRef.current = enabled;
+    if (!enabled && wasEnabled) {
+      workerRef.current?.postMessage({ type: "reset" });
+    }
+  }, [enabled]);
 }
