@@ -235,6 +235,57 @@ export function computeMovement(
  *   mouth_ap:   ‖face[13]-face[14]‖
  *   brow_h:     face[65,y] - face[159,y]
  */
+// ── Fingerspelling: exact replica of notebook extract_h_augmented ────────────
+
+// MediaPipe 21-point hand landmark indices (matches notebook constants)
+const FS_MCP = [2, 5, 9, 13, 17];  // THUMB_MCP, IDX_MCP, MID_MCP, RNG_MCP, PNK_MCP
+const FS_TIP = [4, 8, 12, 16, 20]; // THUMB_TIP, IDX_TIP, MID_TIP, RNG_TIP, PNK_TIP
+const FS_PIP = [3, 6, 10, 14, 18]; // THUMB_IP,  IDX_PIP, MID_PIP, RNG_PIP, PNK_PIP
+
+/**
+ * Replicates Python extract_h_augmented(lm) — 13-dim per hand.
+ * Normalizes by centering at wrist and scaling by wrist→MID_MCP distance.
+ * Uses raw (pre-Sim3) landmarks so geometry matches training exactly.
+ */
+export function fingerspellingH(hand: Float32Array): Float32Array {
+  // Center at wrist (index 0), scale by wrist→MID_MCP (index 9) distance
+  const wx = hand[0], wy = hand[1], wz = hand[2];
+  const scale = Math.sqrt(
+    (hand[27] - wx) ** 2 + (hand[28] - wy) ** 2 + (hand[29] - wz) ** 2
+  ) + 1e-8; // hand[9*3]=27, hand[9*3+1]=28, hand[9*3+2]=29
+
+  function nlm(i: number): [number, number, number] {
+    return [
+      (hand[i * 3]     - wx) / scale,
+      (hand[i * 3 + 1] - wy) / scale,
+      (hand[i * 3 + 2] - wz) / scale,
+    ];
+  }
+
+  const origin: [number, number, number] = [0, 0, 0]; // wrist after normalization
+  const features: number[] = [];
+
+  // 5 MCP flexion: angle(MCP − wrist, TIP − MCP)
+  for (let i = 0; i < 5; i++) {
+    const mcp = nlm(FS_MCP[i]);
+    features.push(angleBetween(sub(mcp, origin), sub(nlm(FS_TIP[i]), mcp)));
+  }
+
+  // 3 abduction: angle(MCP[i] − wrist, MCP[i+1] − wrist)
+  for (let i = 1; i < 4; i++) {
+    features.push(angleBetween(sub(nlm(FS_MCP[i]), origin), sub(nlm(FS_MCP[i + 1]), origin)));
+  }
+
+  // 5 PIP flexion: angle(PIP − MCP, TIP − PIP)
+  for (let i = 0; i < 5; i++) {
+    const mcp = nlm(FS_MCP[i]);
+    const pip = nlm(FS_PIP[i]);
+    features.push(angleBetween(sub(pip, mcp), sub(nlm(FS_TIP[i]), pip)));
+  }
+
+  return new Float32Array(features); // (13,)
+}
+
 export function computeNonManual(face: Float32Array | null): Float32Array {
   if (!face) return new Float32Array(5);
 

@@ -66,6 +66,7 @@ export interface TranscriptEntry {
 }
 
 export type AppStatus = "idle" | "loading" | "live" | "paused" | "error";
+export type ModelMode = "signs" | "fingerspelling";
 
 export interface AppState {
   status: AppStatus;
@@ -79,6 +80,9 @@ export interface AppState {
   transcript: TranscriptEntry[];
   signFrames: number;                  // frames accumulated in current sign buffer
 
+  modelMode: ModelMode;
+  fsLetter: string | null;             // current fingerspelling letter prediction
+
   // Actions
   setStatus: (s: AppStatus) => void;
   setFps: (fps: number) => void;
@@ -90,6 +94,8 @@ export interface AppState {
   setSignFrames: (n: number) => void;
   pushTranscript: (entry: TranscriptEntry) => void;
   clearTranscript: () => void;
+  setModelMode: (m: ModelMode) => void;
+  setFsLetter: (l: string | null) => void;
 }
 
 // ─── Worker message types ─────────────────────────────────────────
@@ -110,16 +116,21 @@ export type MediaPipeWorkerOut =
     }};
 
 export type InferenceWorkerIn =
-  | { type: "init"; modelBuffer: ArrayBuffer; origin: string }
-  | { type: "features"; data: ArrayBuffer }  // (46,) float32
-  | { type: "reset" };                        // clear ring buffer, no inference
+  | { type: "init";    modelBuffer: ArrayBuffer; origin: string }
+  | { type: "init_fs"; modelBuffer: ArrayBuffer; origin: string }
+  | { type: "features";    data: ArrayBuffer }   // (46,) float32 — sign model
+  | { type: "features_fs"; data: ArrayBuffer }   // (13,) float32 — fingerspelling model
+  | { type: "set_mode"; mode: ModelMode }
+  | { type: "reset" };
 
 export type InferenceWorkerOut =
   | { type: "ready" }
+  | { type: "fs_ready" }
   | { type: "error"; message: string }
   | { type: "result"; data: InferenceResult }
-  | { type: "live";   data: InferenceResult }   // throttled live candidate, any confidence
-  | { type: "frames"; count: number };           // ring-buffer size, sent every frame
+  | { type: "live";   data: InferenceResult }
+  | { type: "frames"; count: number }
+  | { type: "letter"; data: { letter: string; confidence: number } };
 
 // ─── Data file types (vocab.json, sign_space.json) ─────────────
 

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type {
   AppState,
   AppStatus,
+  ModelMode,
   Landmarks,
   PhonologyFeatures,
   InferenceResult,
@@ -21,6 +22,8 @@ export const useAppStore = create<AppState>((set) => ({
   candidate:  null,
   transcript: [],
   signFrames: 0,
+  modelMode: "signs",
+  fsLetter: null,
 
   setStatus: (status: AppStatus) => set({ status }),
   setFps: (fps: number) => set({ fps }),
@@ -37,4 +40,6 @@ export const useAppStore = create<AppState>((set) => ({
     })),
 
   clearTranscript: () => set({ transcript: [] }),
+  setModelMode: (modelMode: ModelMode) => set({ modelMode, fsLetter: null }),
+  setFsLetter: (fsLetter: string | null) => set({ fsLetter }),
 }));

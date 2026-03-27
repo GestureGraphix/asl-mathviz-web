@@ -13,6 +13,8 @@ export function useInference({ enabled = true }: { enabled?: boolean } = {}) {
   const setCandidate   = useAppStore((s) => s.setCandidate);
   const setSignFrames  = useAppStore((s) => s.setSignFrames);
   const pushTranscript = useAppStore((s) => s.pushTranscript);
+  const setFsLetter    = useAppStore((s) => s.setFsLetter);
+  const modelMode      = useAppStore((s) => s.modelMode);
 
   // Spin up worker once on mount
   useEffect(() => {
@@ -21,13 +23,12 @@ export function useInference({ enabled = true }: { enabled?: boolean } = {}) {
       { type: "module" }
     );
     workerRef.current = worker;
-    // Expose to useMediaPipe for direct feature forwarding (no Zustand round-trip)
     inferenceWorkerBridge.current = worker;
 
     worker.onmessage = (e: MessageEvent<InferenceWorkerOut>) => {
       const msg = e.data;
-      if (msg.type === "ready") {
-        // worker ready
+      if (msg.type === "ready" || msg.type === "fs_ready") {
+        // models loaded
       } else if (msg.type === "error") {
         console.error("[inference worker]", msg.message);
       } else if (msg.type === "frames") {
@@ -36,7 +37,7 @@ export function useInference({ enabled = true }: { enabled?: boolean } = {}) {
         setCandidate(msg.data);
       } else if (msg.type === "result") {
         const result = msg.data;
-        setCandidate(null);  // clear live estimate on commit
+        setCandidate(null);
         if (result.confidence >= 0.65) {
           setPrediction(result);
           pushTranscript({
@@ -45,22 +46,34 @@ export function useInference({ enabled = true }: { enabled?: boolean } = {}) {
             timestamp_ms: result.timestamp_ms,
           });
         }
+      } else if (msg.type === "letter") {
+        setFsLetter(msg.data.letter || null);
       }
     };
 
-    // Load the ONNX model and transfer the buffer (zero-copy)
+    // Load both models in parallel; worker processes messages in order so
+    // init() (which sets WASM paths) always runs before init_fs() uses them.
+    const origin = window.location.origin;
     fetch("/models/asl_v1.onnx")
       .then((r) => r.arrayBuffer())
-      .then((buf) => {
-        worker.postMessage({ type: "init", modelBuffer: buf, origin: window.location.origin }, [buf]);
-      })
-      .catch((err) => console.error("[inference] model load failed:", err));
+      .then((buf) => worker.postMessage({ type: "init", modelBuffer: buf, origin }, [buf]))
+      .catch((err) => console.error("[inference] sign model load failed:", err));
+
+    fetch("/models/fs_aug_13dim.onnx")
+      .then((r) => r.arrayBuffer())
+      .then((buf) => worker.postMessage({ type: "init_fs", modelBuffer: buf, origin }, [buf]))
+      .catch((err) => console.error("[inference] fs model load failed:", err));
 
     return () => {
       inferenceWorkerBridge.current = null;
       worker.terminate();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync mode changes to the worker
+  useEffect(() => {
+    workerRef.current?.postMessage({ type: "set_mode", mode: modelMode });
+  }, [modelMode]);
 
   // Reset worker buffers when switching away from recognize mode
   useEffect(() => {

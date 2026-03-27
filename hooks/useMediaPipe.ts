@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/appStore";
 import { extractFeatures } from "@/lib/features";
 import { pushToFeatureBuffer } from "@/lib/featureBuffer";
+import { fingerspellingH } from "@/lib/phonology";
 import { inferenceWorkerBridge } from "@/lib/inferenceWorkerBridge";
 import type { MediaPipeWorkerOut, Landmarks } from "@/types";
 
@@ -68,9 +69,20 @@ export function useMediaPipe({ videoRef, enabled = true }: UseMediaPipeOptions) 
         // for a React re-render cycle before inference sees the frame.
         const infWorker = inferenceWorkerBridge.current;
         if (infWorker && enabledRef.current) {
-          const fv  = features.feature_vector;
-          const buf = fv.buffer.slice(fv.byteOffset, fv.byteOffset + fv.byteLength);
-          infWorker.postMessage({ type: "features", data: buf }, [buf]);
+          const mode = useAppStore.getState().modelMode;
+          if (mode === "fingerspelling") {
+            // Use raw (pre-Sim3) landmarks — fingerspellingH normalizes internally
+            const hand = landmarks.right_hand ?? landmarks.left_hand;
+            if (hand) {
+              const fsFeats = fingerspellingH(hand);
+              const buf = fsFeats.buffer.slice(fsFeats.byteOffset, fsFeats.byteOffset + fsFeats.byteLength);
+              infWorker.postMessage({ type: "features_fs", data: buf }, [buf]);
+            }
+          } else {
+            const fv  = features.feature_vector;
+            const buf = fv.buffer.slice(fv.byteOffset, fv.byteOffset + fv.byteLength);
+            infWorker.postMessage({ type: "features", data: buf }, [buf]);
+          }
         }
       }
     };

@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import * as ort from "onnxruntime-web";
-import type { InferenceWorkerIn, InferenceWorkerOut, InferenceResult } from "@/types";
+import type { InferenceWorkerIn, InferenceWorkerOut, InferenceResult, ModelMode } from "@/types";
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -11,9 +11,18 @@ const REST_FRAMES         = 4;
 const MIN_SIGN_FRAMES     = 8;
 const MAX_BUFFER_SIZE     = 120;  // 4s at 30fps
 
-// ── State ─────────────────────────────────────────────────────────
+// ── Sign model state ──────────────────────────────────────────────
 let session:  ort.InferenceSession | null = null;
 let idToGloss: Record<number, string>     = {};
+
+// ── Fingerspelling model state ────────────────────────────────────
+let fsSession: ort.InferenceSession | null = null;
+let fsLetterClasses: string[]              = [];
+let fsNormMean: Float32Array               = new Float32Array(13);
+let fsNormStd:  Float32Array               = new Float32Array(13).fill(1);
+let fsMode = false;
+const FS_SMOOTH_WINDOW = 7;
+const fsSmooth: string[] = [];
 
 const ringBuffer: Float32Array[] = [];
 const normBuffer: number[]       = [];
@@ -165,7 +174,7 @@ async function processFeatures(data: ArrayBuffer) {
   }
 }
 
-// ── Reset ─────────────────────────────────────────────────────────
+// ── Reset sign buffers ────────────────────────────────────────────
 function resetBuffers() {
   ringBuffer.length = 0;
   normBuffer.length = 0;
@@ -174,10 +183,75 @@ function resetBuffers() {
   self.postMessage({ type: "frames", count: 0 } satisfies InferenceWorkerOut);
 }
 
+// ── Init fingerspelling model ─────────────────────────────────────
+async function initFs(modelBuffer: ArrayBuffer, origin: string) {
+  try {
+    // WASM env already configured by init() — just create the session
+    fsSession = await ort.InferenceSession.create(modelBuffer, {
+      executionProviders: ["wasm"],
+      graphOptimizationLevel: "all",
+    });
+    const res  = await fetch(`${origin}/data/fs_aug_13dim_meta.json`);
+    const meta = await res.json();
+    fsLetterClasses = meta.letter_classes as string[];
+    fsNormMean = new Float32Array(meta.norm_mean as number[]);
+    fsNormStd  = new Float32Array(meta.norm_std  as number[]);
+    self.postMessage({ type: "fs_ready" } satisfies InferenceWorkerOut);
+  } catch (err) {
+    self.postMessage({ type: "error", message: `[fs] ${String(err)}` } satisfies InferenceWorkerOut);
+  }
+}
+
+// ── Process one fingerspelling feature frame ──────────────────────
+async function processFsFeatures(data: ArrayBuffer) {
+  if (!fsSession || fsLetterClasses.length === 0) return;
+  const fv = new Float32Array(data);
+  if (fv.length !== 13) return;
+
+  // z-score normalize using training stats
+  const x = new Float32Array(13);
+  for (let i = 0; i < 13; i++) x[i] = (fv[i] - fsNormMean[i]) / fsNormStd[i];
+
+  const tensor  = new ort.Tensor("float32", x, [1, 13]);
+  const out     = await fsSession.run({ h_features: tensor });
+  const logits  = out["logits"].data as Float32Array;
+  const probs   = softmax(logits);
+
+  let maxIdx = 0;
+  for (let i = 1; i < probs.length; i++) if (probs[i] > probs[maxIdx]) maxIdx = i;
+
+  const raw        = fsLetterClasses[maxIdx];
+  const confidence = probs[maxIdx];
+
+  // Majority-vote smoothing over last FS_SMOOTH_WINDOW frames
+  fsSmooth.push(raw);
+  if (fsSmooth.length > FS_SMOOTH_WINDOW) fsSmooth.shift();
+  const counts: Record<string, number> = {};
+  for (const l of fsSmooth) counts[l] = (counts[l] ?? 0) + 1;
+  let letter = raw, best = 0;
+  for (const [l, c] of Object.entries(counts)) if (c > best) { letter = l; best = c; }
+
+  self.postMessage({ type: "letter", data: { letter, confidence } } satisfies InferenceWorkerOut);
+}
+
+// ── Switch model mode ─────────────────────────────────────────────
+function setMode(mode: ModelMode) {
+  fsMode = mode === "fingerspelling";
+  if (fsMode) {
+    resetBuffers();          // clear sign ring buffer
+  } else {
+    fsSmooth.length = 0;     // clear FS smoothing window
+    self.postMessage({ type: "letter", data: { letter: "", confidence: 0 } } satisfies InferenceWorkerOut);
+  }
+}
+
 // ── Message handler ───────────────────────────────────────────────
 self.onmessage = async (e: MessageEvent<InferenceWorkerIn>) => {
   const msg = e.data;
-  if (msg.type === "init")     await init(msg.modelBuffer, msg.origin);
-  if (msg.type === "features") await processFeatures(msg.data);
-  if (msg.type === "reset")    resetBuffers();
+  if (msg.type === "init")        await init(msg.modelBuffer, msg.origin);
+  if (msg.type === "init_fs")     await initFs(msg.modelBuffer, msg.origin);
+  if (msg.type === "features")    await processFeatures(msg.data);
+  if (msg.type === "features_fs") await processFsFeatures(msg.data);
+  if (msg.type === "set_mode")    setMode(msg.mode);
+  if (msg.type === "reset")       resetBuffers();
 };

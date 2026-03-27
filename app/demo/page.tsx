@@ -61,6 +61,9 @@ export default function Home() {
   const clearTranscript = useAppStore((s) => s.clearTranscript);
   const setStatus      = useAppStore((s) => s.setStatus);
   const prediction     = useAppStore((s) => s.prediction);
+  const modelMode      = useAppStore((s) => s.modelMode);
+  const setModelMode   = useAppStore((s) => s.setModelMode);
+  const fsLetter       = useAppStore((s) => s.fsLetter);
 
   // ── Auto-geodesic: fires on every new committed prediction pair ──
   useEffect(() => {
@@ -195,11 +198,62 @@ export default function Home() {
               </div>
             )}
 
-            <PredictionOverlay onShowCanonical={handleShowCanonical} />
-            <AttentionStrip />
-            {status === "live" && <PhonologicalSpectrogram />}
-            {status === "live" && <PhonologyArcs />}
-            {status === "live" && <SignDetonation />}
+            {/* ── Model mode toggle ────────────────────────────── */}
+            {status === "live" && (
+              <div style={{
+                position: "absolute", top: 12, left: 12, zIndex: 10,
+                display: "flex",
+                background: "rgba(4,8,18,0.75)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 6, overflow: "hidden",
+                backdropFilter: "blur(6px)",
+              }}>
+                {(["signs", "fingerspelling"] as const).map((m) => (
+                  <button key={m} onClick={() => setModelMode(m)} style={{
+                    padding: "4px 12px",
+                    fontSize: 10,
+                    fontFamily: "var(--font-mono, monospace)",
+                    letterSpacing: "0.06em",
+                    background: modelMode === m ? "rgba(255,255,255,0.12)" : "transparent",
+                    color: modelMode === m ? "var(--ink1, #f0f0f0)" : "var(--ink4, #666)",
+                    border: "none", cursor: "pointer",
+                    transition: "background 0.15s, color 0.15s",
+                  }}>
+                    {m === "signs" ? "Signs" : "A–Z"}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* ── Fingerspelling letter display ─────────────────── */}
+            {status === "live" && modelMode === "fingerspelling" && fsLetter && (
+              <div style={{
+                position: "absolute", top: "40%", left: "50%",
+                transform: "translate(-50%, -50%)",
+                zIndex: 8, textAlign: "center", pointerEvents: "none",
+              }}>
+                <div style={{
+                  fontFamily: "var(--font-mono, monospace)",
+                  fontSize: 140, fontWeight: 700, lineHeight: 1,
+                  color: "rgba(255,255,255,0.92)",
+                  textShadow: "0 0 60px rgba(80,180,255,0.35)",
+                }}>
+                  {fsLetter}
+                </div>
+                <div style={{
+                  fontFamily: "var(--font-mono, monospace)",
+                  fontSize: 11, color: "var(--ink4, #666)", marginTop: 8,
+                }}>
+                  fingerspelling
+                </div>
+              </div>
+            )}
+
+            {modelMode === "signs" && <PredictionOverlay onShowCanonical={handleShowCanonical} />}
+            {modelMode === "signs" && <AttentionStrip />}
+            {status === "live" && modelMode === "signs" && <PhonologicalSpectrogram />}
+            {status === "live" && modelMode === "signs" && <PhonologyArcs />}
+            {status === "live" && modelMode === "signs" && <SignDetonation />}
 
             {status === "idle" && (
               <CenteredMessage>Requesting camera…</CenteredMessage>
