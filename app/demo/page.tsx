@@ -123,8 +123,6 @@ export default function Home() {
 
   return (
     <>
-      {/* Mobile banner */}
-      <MobileBanner />
 
       <div ref={shellRef} className="app-shell" data-cinema={isCinema || undefined}>
         {!isCinema && (
@@ -175,6 +173,7 @@ export default function Home() {
             {/* ── PIP (swaps on click) ─────────────────────────── */}
             {status === "live" && (
               <div
+                className="demo-pip"
                 onClick={() => setVideoMain((v) => !v)}
                 title="Click to swap views"
                 style={{
@@ -348,7 +347,7 @@ export default function Home() {
               </div>
 
               {/* Keyboard shortcuts */}
-              <div style={{
+              <div className="demo-keyboard-hints" style={{
                 display: "flex", gap: 12, flexWrap: "wrap",
                 padding: "8px 12px", borderTop: "1px solid var(--rule)",
                 marginTop: "auto",
@@ -464,48 +463,3 @@ function CenteredMessage({
   );
 }
 
-function MobileBanner() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    setVisible(window.innerWidth < 768);
-  }, []);
-
-  if (!visible) return null;
-
-  return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 99999,
-      background: "var(--bg-base)",
-      display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
-      gap: 12, padding: 32, textAlign: "center",
-    }}>
-      <span style={{ fontSize: 32 }}>🖥</span>
-      <p style={{
-        fontFamily: "var(--font-display, 'Bodoni Moda', serif)",
-        fontStyle: "italic", fontSize: 22, color: "var(--ink)",
-      }}>
-        Best on desktop
-      </p>
-      <p style={{
-        fontFamily: "var(--font-ui, Figtree, sans-serif)",
-        fontSize: 13, color: "var(--ink3)", maxWidth: 280,
-      }}>
-        ASL MathViz uses your webcam and a 3D scene that works best on a laptop or desktop browser.
-      </p>
-      <button
-        onClick={() => setVisible(false)}
-        style={{
-          marginTop: 8, padding: "8px 20px",
-          background: "var(--bg-raised)", border: "1px solid var(--rule)",
-          borderRadius: 6, cursor: "pointer",
-          fontFamily: "var(--font-ui, Figtree, sans-serif)",
-          fontSize: 12, color: "var(--ink3)",
-        }}
-      >
-        Continue anyway
-      </button>
-    </div>
-  );
-}

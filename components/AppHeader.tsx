@@ -90,13 +90,13 @@ export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) 
           </>
         )}
 
-        {/* FPS / latency / live phonological code badges */}
+        {/* FPS / latency / live phonological code badges — hidden on mobile */}
         {mode === "recognize" && (status === "live" || isPaused) && (
-          <>
+          <div className="demo-header-metrics" style={{ display: "contents" }}>
             <MetricBadge value={`${fps}`} suffix="fps" />
             <MetricBadge value={`${latency_ms}`} suffix="ms" />
             <LiveCodeReadout />
-          </>
+          </div>
         )}
 
         {/* Current prediction */}
@@ -118,7 +118,7 @@ export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) 
         )}
 
         {mode === "generate" && (
-          <span style={{
+          <span className="demo-mode-label" style={{
             fontFamily: "var(--font-mono, monospace)",
             fontSize: 9,
             color: "var(--ink5)",
@@ -128,7 +128,7 @@ export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) 
           </span>
         )}
         {mode === "geodesic" && (
-          <span style={{
+          <span className="demo-mode-label" style={{
             fontFamily: "var(--font-mono, monospace)",
             fontSize: 9,
             color: "var(--ink5)",

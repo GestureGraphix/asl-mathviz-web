@@ -369,3 +369,62 @@ body::after {
   .diff-answers     { grid-template-columns: repeat(3, 1fr) !important; }
   .roadmap-engineering { grid-template-columns: repeat(3, 1fr) !important; }
 }
+
+/* ── Demo app: mobile stacked layout ────────────────────────
+   Desktop grid (scene | sidebar) becomes scene-above-sidebar.
+   The 100vh fixed shell becomes a scrollable page on mobile.  */
+@media (max-width: 767px) {
+  /* Shell becomes scrollable */
+  .app-shell {
+    height: auto !important;
+    min-height: 100svh;
+    overflow: visible !important;
+    grid-template-rows: 42px auto auto !important;
+  }
+
+  /* Main area: flex column instead of two-column grid */
+  .app-main {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Scene: fixed viewport-relative height */
+  .app-scene {
+    flex-shrink: 0 !important;
+    height: 58vw !important;
+    min-height: 260px !important;
+    max-height: 380px !important;
+  }
+
+  /* Sidebar: full-width, auto-height below the scene */
+  .app-sidebar {
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    border-left: none !important;
+    border-top: 1px solid var(--rule) !important;
+    overflow-y: visible !important;
+  }
+
+  /* Transcript: sticky at page bottom */
+  .app-transcript {
+    position: sticky !important;
+    bottom: 0 !important;
+    z-index: 20 !important;
+  }
+
+  /* Header: hide heavy metrics on mobile */
+  .demo-header-metrics { display: none !important; }
+  .demo-mode-label     { display: none !important; }
+
+  /* Keyboard hint bar in sidebar — irrelevant on touch */
+  .demo-keyboard-hints { display: none !important; }
+
+  /* PIP: smaller on mobile */
+  .demo-pip {
+    width: 120px !important;
+    height: 90px !important;
+  }
+}

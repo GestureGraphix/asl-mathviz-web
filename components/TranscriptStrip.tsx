@@ -27,6 +27,7 @@ export function TranscriptStrip() {
 
   return (
     <footer
+      className="app-transcript"
       style={{
         gridArea: "transcript",
         height: 50,
