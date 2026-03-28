@@ -129,6 +129,7 @@ export default function Home() {
           <AppHeader
             mode={mode}
             onModeChange={handleModeChange}
+            onToggleCinema={toggleCinema}
           />
         )}
 
@@ -276,16 +277,6 @@ export default function Home() {
               <CenteredMessage muted>Show your hand to begin.</CenteredMessage>
             )}
 
-            {/* Cinema hint */}
-            {isCinema && (
-              <div style={{
-                position: "absolute", top: 10, right: 12, zIndex: 10,
-                fontFamily: "var(--font-mono, monospace)", fontSize: 9,
-                color: "var(--ink5)",
-              }}>
-                F · exit cinema
-              </div>
-            )}
 
             {/* Dev indicator */}
             {process.env.NODE_ENV === "development" && status === "live" && (
@@ -375,6 +366,43 @@ export default function Home() {
         <TranscriptStrip />
       </div>
 
+      {/* ── Exit cinema button — fixed overlay, all modes ───────────── */}
+      {isCinema && (
+        <button
+          onClick={toggleCinema}
+          title="Exit full screen (F)"
+          style={{
+            position: "fixed",
+            top: 10,
+            right: 12,
+            zIndex: 150,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
+            background: "rgba(4,8,18,0.55)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            borderRadius: 7,
+            cursor: "pointer",
+            color: "rgba(255,255,255,0.6)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            transition: "color 0.15s, background 0.15s",
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = "rgba(255,255,255,0.95)";
+            e.currentTarget.style.background = "rgba(4,8,18,0.8)";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = "rgba(255,255,255,0.6)";
+            e.currentTarget.style.background = "rgba(4,8,18,0.55)";
+          }}
+        >
+          <ExitFullscreenIcon />
+        </button>
+      )}
+
       {/* ── Auto-geodesic overlay ─────────────────────────────────── */}
       {autoGeo && (
         <div style={{
@@ -437,6 +465,19 @@ export default function Home() {
         </div>
       )}
     </>
+  );
+}
+
+// ── Icons ──────────────────────────────────────────────────────────
+
+function ExitFullscreenIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+      <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+      <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+      <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+    </svg>
   );
 }
 

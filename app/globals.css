@@ -370,6 +370,27 @@ body::after {
   .roadmap-engineering { grid-template-columns: repeat(3, 1fr) !important; }
 }
 
+/* ── Cinema / full-screen mode ──────────────────────────────
+   data-cinema collapses the header and transcript grid rows
+   so the scene fills exactly 100vh. Transcript becomes a
+   frosted-glass overlay at the bottom of the viewport.       */
+
+.app-shell[data-cinema] {
+  grid-template-rows: 0px 1fr 0px !important;
+}
+
+.app-shell[data-cinema] .app-transcript {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 100 !important;
+  background: rgba(241, 237, 228, 0.88) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border-top: 1px solid var(--rule) !important;
+}
+
 /* ── Demo app: mobile stacked layout ────────────────────────
    Desktop grid (scene | sidebar) becomes scene-above-sidebar.
    The 100vh fixed shell becomes a scrollable page on mobile.  */
@@ -449,5 +470,26 @@ body::after {
   .demo-pip {
     width: 120px !important;
     height: 90px !important;
+  }
+
+  /* Cinema on mobile: undo scroll layout, fill viewport in any orientation */
+  .app-shell[data-cinema] {
+    height: 100dvh !important;
+    overflow: hidden !important;
+    grid-template-rows: 0px 1fr 0px !important;
+  }
+
+  .app-shell[data-cinema] .app-main {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  .app-shell[data-cinema] .app-scene {
+    flex: 1 !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
   }
 }

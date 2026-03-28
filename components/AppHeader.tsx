@@ -7,9 +7,10 @@ type AppMode = "recognize" | "generate" | "geodesic";
 interface AppHeaderProps {
   mode?: AppMode;
   onModeChange?: (m: AppMode) => void;
+  onToggleCinema?: () => void;
 }
 
-export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) {
+export function AppHeader({ mode = "recognize", onModeChange, onToggleCinema }: AppHeaderProps) {
   const status     = useAppStore((s) => s.status);
   const fps        = useAppStore((s) => s.fps);
   const latency_ms = useAppStore((s) => s.latency_ms);
@@ -116,6 +117,13 @@ export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) 
           >
             {prediction.gloss}
           </span>
+        )}
+
+        {/* Full-screen / cinema toggle */}
+        {onToggleCinema && (
+          <IconButton onClick={onToggleCinema} title="Full screen (F)">
+            <FullscreenIcon />
+          </IconButton>
         )}
 
         {mode === "generate" && (
@@ -231,6 +239,17 @@ function MetricBadge({ value, suffix }: { value: string; suffix: string }) {
 }
 
 // ── SVG icons ──────────────────────────────────────────────────────────────────
+
+function FullscreenIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+      <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+      <path d="M21 16v3a2 2 0 0 1-2 2h-3" />
+      <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+    </svg>
+  );
+}
 
 function PauseIcon() {
   return (
