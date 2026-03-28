@@ -52,7 +52,7 @@ export function MathSection() {
   const isInView = useInView(ref, { once: true, amount: 0.1 });
 
   return (
-    <section id="math" ref={ref} style={{
+    <section id="math" ref={ref} className="section-pad" style={{
       padding: "96px 40px",
       borderTop: "1px solid var(--rule)",
       background: "var(--bg-surface)",
@@ -122,6 +122,7 @@ export function MathSection() {
                 delay: 0.2 + i * 0.1,
                 ease: [0.16, 1, 0.3, 1],
               }}
+              className="math-formula-card"
               style={{
                 background: "var(--bg-base)",
                 border: "1px solid var(--rule)",
@@ -132,7 +133,7 @@ export function MathSection() {
               }}
             >
               {/* Left: formula */}
-              <div style={{
+              <div className="math-formula-left" style={{
                 padding: "32px 36px",
                 borderRight: "1px solid var(--rule)",
                 display: "flex",

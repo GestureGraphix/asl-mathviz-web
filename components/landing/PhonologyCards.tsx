@@ -62,7 +62,7 @@ export function PhonologyCards() {
   const isInView = useInView(ref, { once: true, amount: 0.1 });
 
   return (
-    <section id="parameters" ref={ref} style={{
+    <section id="parameters" ref={ref} className="section-pad" style={{
       padding: "96px 40px",
       borderTop: "1px solid var(--rule)",
       background: "var(--bg-surface)",
@@ -160,7 +160,7 @@ export function PhonologyCards() {
         </motion.div>
 
         {/* Parameter cards */}
-        <div style={{
+        <div className="phonology-grid" style={{
           display: "grid",
           gridTemplateColumns: "repeat(5, 1fr)",
           gap: 12,

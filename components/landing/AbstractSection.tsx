@@ -9,7 +9,7 @@ export function AbstractSection() {
   const isInView = useInView(ref, { once: true, amount: 0.1 });
 
   return (
-    <section id="about" ref={ref} style={{
+    <section id="about" ref={ref} className="section-pad-xl" style={{
       padding: "96px 40px 120px",
       borderTop: "1px solid var(--rule)",
     }}>
@@ -48,7 +48,7 @@ export function AbstractSection() {
           About the Research
         </motion.h2>
 
-        <div style={{
+        <div className="abstract-grid" style={{
           display: "grid",
           gridTemplateColumns: "1fr 380px",
           gap: 64,
@@ -245,6 +245,7 @@ export function AbstractSection() {
         initial={{ opacity: 0 }}
         animate={isInView ? { opacity: 1 } : {}}
         transition={{ duration: 0.6, delay: 0.5 }}
+        className="abstract-footer"
         style={{
           maxWidth: 1100,
           margin: "80px auto 0",

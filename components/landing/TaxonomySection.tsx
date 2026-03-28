@@ -59,7 +59,7 @@ export function TaxonomySection() {
   const isInView = useInView(ref, { once: true, amount: 0.1 });
 
   return (
-    <section id="research" ref={ref} style={{
+    <section id="research" ref={ref} className="section-pad" style={{
       padding: "96px 40px",
       borderTop: "1px solid var(--rule)",
     }}>
@@ -118,6 +118,7 @@ export function TaxonomySection() {
 
         {/* Column headers */}
         <motion.div
+          className="taxonomy-col-header"
           initial={{ opacity: 0 }}
           animate={isInView ? { opacity: 1 } : {}}
           transition={{ duration: 0.4, delay: 0.15 }}
@@ -156,6 +157,7 @@ export function TaxonomySection() {
               delay: 0.2 + i * 0.08,
               ease: [0.16, 1, 0.3, 1],
             }}
+            className="taxonomy-row"
             style={{
               display: "grid",
               gridTemplateColumns: "48px 1fr 140px 140px 80px",
@@ -237,7 +239,7 @@ export function TaxonomySection() {
             </div>
 
             {/* Data */}
-            <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 6, justifyContent: "flex-start", paddingTop: 2 }}>
+            <div className="taxonomy-col-data" style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 6, justifyContent: "flex-start", paddingTop: 2 }}>
               <span style={{
                 fontFamily: "var(--font-ui, Figtree, sans-serif)",
                 fontSize: 11,
@@ -265,7 +267,7 @@ export function TaxonomySection() {
             </div>
 
             {/* Vocab */}
-            <div style={{ padding: "0 12px", paddingTop: 2 }}>
+            <div className="taxonomy-col-vocab" style={{ padding: "0 12px", paddingTop: 2 }}>
               <span style={{
                 fontFamily: "var(--font-ui, Figtree, sans-serif)",
                 fontSize: 11,
@@ -277,7 +279,7 @@ export function TaxonomySection() {
             </div>
 
             {/* Invariance */}
-            <div style={{ padding: "0 12px", paddingTop: 2 }}>
+            <div className="taxonomy-col-sim" style={{ padding: "0 12px", paddingTop: 2 }}>
               <span style={{
                 fontFamily: "var(--font-mono, DM Mono, monospace)",
                 fontSize: 13,

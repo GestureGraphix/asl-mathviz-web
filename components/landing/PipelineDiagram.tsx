@@ -59,7 +59,7 @@ export function PipelineDiagram() {
   const isInView = useInView(ref, { once: true, amount: 0.2 });
 
   return (
-    <section id="pipeline" ref={ref} style={{
+    <section id="pipeline" ref={ref} className="section-pad" style={{
       padding: "96px 40px",
       borderTop: "1px solid var(--rule)",
     }}>

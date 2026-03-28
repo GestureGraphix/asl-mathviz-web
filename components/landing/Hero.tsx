@@ -18,7 +18,7 @@ const STATS: Stat[] = [
 
 export function Hero() {
   return (
-    <section style={{
+    <section className="hero-section" style={{
       minHeight: "92vh",
       display: "flex",
       flexDirection: "column",
@@ -137,6 +137,7 @@ export function Hero() {
 
         {/* Stats row */}
         <motion.div
+          className="hero-stats"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.28, ease: [0.16, 1, 0.3, 1] }}
@@ -209,6 +210,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.36, ease: [0.16, 1, 0.3, 1] }}
+          className="hero-ctas"
           style={{ display: "flex", gap: 12, alignItems: "center" }}
         >
           <Link

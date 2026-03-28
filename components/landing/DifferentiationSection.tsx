@@ -59,6 +59,7 @@ export function DifferentiationSection() {
   return (
     <section
       ref={ref}
+      className="section-pad-xl"
       style={{
         padding: "80px 40px 96px",
         borderTop: "1px solid var(--rule)",
@@ -142,6 +143,7 @@ export function DifferentiationSection() {
 
         {/* Three zeros */}
         <div
+          className="diff-zeros"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(3, 1fr)",
@@ -263,6 +265,7 @@ export function DifferentiationSection() {
 
         {/* Answer stats — count up */}
         <div
+          className="diff-answers"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(3, 1fr)",

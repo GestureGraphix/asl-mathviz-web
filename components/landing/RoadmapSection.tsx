@@ -96,6 +96,7 @@ export function RoadmapSection() {
     <section
       id="roadmap"
       ref={ref}
+      className="section-pad-xl"
       style={{
         padding: "96px 40px 112px",
         borderTop: "1px solid var(--rule)",
@@ -163,6 +164,7 @@ export function RoadmapSection() {
               initial={{ opacity: 0, x: -20 }}
               animate={isInView ? { opacity: 1, x: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.18 + i * 0.12, ease: [0.16, 1, 0.3, 1] }}
+              className="roadmap-theory-item"
               style={{
                 display: "grid",
                 gridTemplateColumns: "280px 1fr",
@@ -175,7 +177,7 @@ export function RoadmapSection() {
               }}
             >
               {/* Left: formula + status */}
-              <div style={{
+              <div className="roadmap-theory-left" style={{
                 padding: "28px 28px 24px",
                 borderRight: "1px solid var(--rule)",
                 display: "flex",
@@ -331,7 +333,7 @@ export function RoadmapSection() {
           <div style={{ flex: 1, height: "1px", background: "var(--rule)" }} />
         </motion.div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+        <div className="roadmap-engineering" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
           {ENGINEERING.map((item, i) => (
             <motion.div
               key={item.title}

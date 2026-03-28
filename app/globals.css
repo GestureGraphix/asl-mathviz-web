@@ -276,3 +276,96 @@ body::after {
 
 @keyframes autoGeoFadeIn { from { opacity: 0 } to { opacity: 1 } }
 @keyframes autoGeoDrain  { from { width: 100% } to { width: 0% } }
+
+/* ── Mobile-first responsive overrides ──────────────────────
+   All inline styles beat normal CSS, so we use !important here.
+   Desktop layout is unchanged — these only fire at ≤767px.     */
+
+/* Nav mobile button hidden by default (desktop) */
+.nav-mobile-btn { display: none; }
+
+@media (max-width: 767px) {
+  /* NavBar */
+  .nav-bar     { padding-left: 20px !important; padding-right: 20px !important; }
+  .nav-links   { display: none !important; }
+  .nav-mobile-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 6px 9px;
+    cursor: pointer;
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  /* Section padding */
+  .section-pad    { padding: 56px 20px !important; }
+  .section-pad-xl { padding: 56px 20px 72px !important; }
+
+  /* Hero */
+  .hero-section { padding: 56px 20px 48px !important; }
+  .hero-stats   {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .hero-stats > div {
+    min-width: 0 !important;
+    padding: 14px 16px !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--rule) !important;
+  }
+  .hero-stats > div:nth-child(odd)       { border-right: 1px solid var(--rule) !important; }
+  .hero-stats > div:nth-last-child(-n+2) { border-bottom: none !important; }
+  .hero-ctas { flex-direction: column !important; align-items: stretch !important; width: 100% !important; }
+  .hero-ctas > * { justify-content: center !important; text-align: center !important; }
+
+  /* Phonology 5-col → 2-col on mobile */
+  .phonology-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Taxonomy table */
+  .taxonomy-col-header { display: none !important; }
+  .taxonomy-row  { grid-template-columns: 1fr !important; }
+  .taxonomy-col-data, .taxonomy-col-vocab, .taxonomy-col-sim { display: none !important; }
+
+  /* Math formula cards: 2-col → 1-col */
+  .math-formula-card { grid-template-columns: 1fr !important; }
+  .math-formula-left {
+    border-right: none !important;
+    border-bottom: 1px solid var(--rule) !important;
+  }
+
+  /* Roadmap theory items: 280px 1fr → 1fr */
+  .roadmap-theory-item { grid-template-columns: 1fr !important; }
+  .roadmap-theory-left {
+    border-right: none !important;
+    border-bottom: 1px solid var(--rule) !important;
+  }
+  /* Roadmap engineering: 3-col → 1-col */
+  .roadmap-engineering { grid-template-columns: 1fr !important; }
+
+  /* Differentiation section: 3-col → 1-col */
+  .diff-zeros   { grid-template-columns: 1fr !important; }
+  .diff-answers { grid-template-columns: 1fr !important; }
+
+  /* Abstract: 2-col → 1-col */
+  .abstract-grid   { grid-template-columns: 1fr !important; }
+  .abstract-footer {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 6px !important;
+    text-align: center !important;
+  }
+}
+
+/* Larger phones / small tablets — relax some stacked grids */
+@media (min-width: 500px) and (max-width: 767px) {
+  .phonology-grid   { grid-template-columns: repeat(3, 1fr) !important; }
+  .diff-zeros       { grid-template-columns: repeat(3, 1fr) !important; }
+  .diff-answers     { grid-template-columns: repeat(3, 1fr) !important; }
+  .roadmap-engineering { grid-template-columns: repeat(3, 1fr) !important; }
+}
