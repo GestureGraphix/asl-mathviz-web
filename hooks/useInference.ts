@@ -27,8 +27,14 @@ export function useInference({ enabled = true }: { enabled?: boolean } = {}) {
 
     worker.onmessage = (e: MessageEvent<InferenceWorkerOut>) => {
       const msg = e.data;
-      if (msg.type === "ready" || msg.type === "fs_ready") {
-        // models loaded
+      if (msg.type === "ready") {
+        // WASM is now fully initialized — safe to load FS model
+        fetch("/models/fs_aug_13dim.onnx")
+          .then((r) => r.arrayBuffer())
+          .then((buf) => worker.postMessage({ type: "init_fs", modelBuffer: buf, origin }, [buf]))
+          .catch((err) => console.error("[inference] fs model load failed:", err));
+      } else if (msg.type === "fs_ready") {
+        // FS model ready
       } else if (msg.type === "error") {
         console.error("[inference worker]", msg.message);
       } else if (msg.type === "frames") {
@@ -51,18 +57,13 @@ export function useInference({ enabled = true }: { enabled?: boolean } = {}) {
       }
     };
 
-    // Load both models in parallel; worker processes messages in order so
-    // init() (which sets WASM paths) always runs before init_fs() uses them.
+    // Load sign model first. The FS model is loaded inside the "ready" handler
+    // so init_fs() always runs after init() has configured WASM paths.
     const origin = window.location.origin;
     fetch("/models/asl_v1.onnx")
       .then((r) => r.arrayBuffer())
       .then((buf) => worker.postMessage({ type: "init", modelBuffer: buf, origin }, [buf]))
       .catch((err) => console.error("[inference] sign model load failed:", err));
-
-    fetch("/models/fs_aug_13dim.onnx")
-      .then((r) => r.arrayBuffer())
-      .then((buf) => worker.postMessage({ type: "init_fs", modelBuffer: buf, origin }, [buf]))
-      .catch((err) => console.error("[inference] fs model load failed:", err));
 
     return () => {
       inferenceWorkerBridge.current = null;
