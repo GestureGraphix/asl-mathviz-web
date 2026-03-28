@@ -374,7 +374,7 @@ body::after {
    Desktop grid (scene | sidebar) becomes scene-above-sidebar.
    The 100vh fixed shell becomes a scrollable page on mobile.  */
 @media (max-width: 767px) {
-  /* Shell becomes scrollable */
+  /* Shell becomes scrollable document */
   .app-shell {
     height: auto !important;
     min-height: 100svh;
@@ -390,12 +390,21 @@ body::after {
     height: auto !important;
   }
 
-  /* Scene: fixed viewport-relative height */
+  /* Scene: use vw in landscape (works well), vh in portrait */
   .app-scene {
     flex-shrink: 0 !important;
-    height: 58vw !important;
+    height: 58vw !important;   /* landscape: wide phone → ~380px */
     min-height: 260px !important;
-    max-height: 380px !important;
+    max-height: 420px !important;
+  }
+
+  /* Portrait: scale off viewport height instead of width */
+  @media (orientation: portrait) {
+    .app-scene {
+      height: 48vh !important;
+      min-height: 280px !important;
+      max-height: 520px !important;
+    }
   }
 
   /* Sidebar: full-width, auto-height below the scene */
@@ -406,6 +415,14 @@ body::after {
     border-left: none !important;
     border-top: 1px solid var(--rule) !important;
     overflow-y: visible !important;
+    padding: 12px !important;
+    gap: 14px !important;
+  }
+
+  /* Sidebar sections: tighter spacing */
+  .sidebar-section {
+    gap: 8px !important;
+    padding-top: 12px !important;
   }
 
   /* Transcript: sticky at page bottom */
@@ -418,6 +435,12 @@ body::after {
   /* Header: hide heavy metrics on mobile */
   .demo-header-metrics { display: none !important; }
   .demo-mode-label     { display: none !important; }
+
+  /* Mode toggle buttons: tighter on narrow screens */
+  .demo-mode-btn {
+    padding: 4px 9px !important;
+    letter-spacing: 0.05em !important;
+  }
 
   /* Keyboard hint bar in sidebar — irrelevant on touch */
   .demo-keyboard-hints { display: none !important; }

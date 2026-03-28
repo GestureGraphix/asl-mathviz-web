@@ -52,6 +52,7 @@ export function AppHeader({ mode = "recognize", onModeChange }: AppHeaderProps) 
         {(["recognize", "generate", "geodesic"] as AppMode[]).map((m) => (
           <button
             key={m}
+            className="demo-mode-btn"
             onClick={() => onModeChange?.(m)}
             style={{
               fontFamily: "var(--font-ui, Figtree, sans-serif)",
