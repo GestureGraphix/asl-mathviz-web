@@ -36,6 +36,11 @@ function mapToSphere(x: number, y: number): THREE.Vector3 {
 }
 
 const SIGN_POS = SIGNS.map((s) => mapToSphere(s.x, s.y));
+
+// Scratch vectors — reused every frame to avoid GC pressure
+const _camDir  = new THREE.Vector3();
+const _desired = new THREE.Vector3();
+const _camNorm = new THREE.Vector3();
 const DOT_PX   = 8;
 const CAM_DIST = 3.4;
 
@@ -114,10 +119,10 @@ function BackdropScene() {
 
     // Camera orbit
     if (targetCamDir.current) {
-      const camDir = camera.position.clone().normalize();
-      if (camDir.dot(targetCamDir.current) < 0.998) {
-        const desired = targetCamDir.current.clone().multiplyScalar(CAM_DIST);
-        camera.position.lerp(desired, 0.018);
+      _camDir.copy(camera.position).normalize();
+      if (_camDir.dot(targetCamDir.current) < 0.998) {
+        _desired.copy(targetCamDir.current).multiplyScalar(CAM_DIST);
+        camera.position.lerp(_desired, 0.018);
         camera.position.setLength(CAM_DIST);
       } else {
         targetCamDir.current = null;
@@ -157,11 +162,11 @@ function BackdropScene() {
     }
 
     // Dot sizing + glow
-    const camNorm = camera.position.clone().normalize();
+    _camNorm.copy(camera.position).normalize();
     for (let i = 0; i < SIGNS.length; i++) {
       const dot = dotRefs.current[i];
       if (!dot) continue;
-      const onFront = SIGN_POS[i].dot(camNorm) > -0.08;
+      const onFront = SIGN_POS[i].dot(_camNorm) > -0.08;
       dot.visible   = onFront;
       if (!onFront) continue;
 

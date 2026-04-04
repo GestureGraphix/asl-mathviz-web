@@ -35,10 +35,14 @@ next-env.d.ts
 Thumbs.db
 *.pem
 .idea/
-.vscode/settings.json
+.vscode/
+*.swp
+*.swo
+*~
 
 # ── Claude Code internals ─────────────────────────────────────────
 .claude-plugin/
+.claude/
 skills/
 
 # ── Logs ─────────────────────────────────────────────────────────
@@ -49,6 +53,11 @@ yarn-error.log*
 
 # ── Testing ──────────────────────────────────────────────────────
 /coverage
+
+# ── Misc ─────────────────────────────────────────────────────────
+*.log
+*.pid
+*.seed
 
 # ── Notes ────────────────────────────────────────────────────────
 # public/models/, public/wasm/, public/ort-wasm* are intentionally

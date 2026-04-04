@@ -84,7 +84,8 @@ function HandModel({ side, hexColor }: HandModelProps) {
   const sizeRef  = useRef(size);
   sizeRef.current = size;
 
-  const r = size.height;
+  // Quantize to 20px steps so geometry only rebuilds on meaningful size changes
+  const r = Math.round(size.height / 20) * 20 || 20;
 
   const jointMat = useMemo(() => new THREE.MeshStandardMaterial({
     color:             new THREE.Color(hexColor),

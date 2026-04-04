@@ -173,8 +173,9 @@ function fullRedraw(ctx: CanvasRenderingContext2D) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function FeatureWaterfall() {
-  const canvasRef    = useRef<HTMLCanvasElement>(null);
-  const lastWriteRef = useRef(-1);
+  const canvasRef      = useRef<HTMLCanvasElement>(null);
+  const lastWriteRef   = useRef(-1);
+  const lastCountTs    = useRef(0);
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -252,16 +253,19 @@ export function FeatureWaterfall() {
       }
 
       lastWriteRef.current = currentWrite;
+
+      // Throttled React state update for the frame counter (~4Hz)
+      const now = performance.now();
+      if (now - lastCountTs.current > 250) {
+        lastCountTs.current = now;
+        setCount(featureBuf.length);
+      }
+
       rafId = requestAnimationFrame(tick);
     }
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, []);
-
-  useEffect(() => {
-    const id = setInterval(() => setCount(featureBuf.length), 250);
-    return () => clearInterval(id);
   }, []);
 
   return (

@@ -28,6 +28,7 @@ const ringBuffer: Float32Array[] = [];
 const normBuffer: number[]       = [];
 let restCounter  = 0;
 let liveFrameCtr = 0;
+let lastReportedFrameCount = -1;
 const LIVE_EVERY = 15;  // send a live candidate every N frames (~500ms at 30fps)
 
 // ── Softmax ───────────────────────────────────────────────────────
@@ -101,14 +102,29 @@ async function runInference(): Promise<InferenceResult | null> {
   const logits  = results["logits"].data as Float32Array;
   const probs   = softmax(logits);
 
-  // Top-k
-  const indexed = Array.from(probs).map((p, i) => ({ i, p }));
-  indexed.sort((a, b) => b.p - a.p);
+  // Top-5 via single-pass partial selection — O(n) vs O(n log n) full sort
+  const K = 5;
+  const topIdx = new Int32Array(K).fill(-1);
+  const topVal = new Float32Array(K);
+  for (let i = 0; i < probs.length; i++) {
+    const p = probs[i];
+    if (p <= topVal[K - 1] && topIdx[K - 1] !== -1) continue;
+    // Insert into sorted top-K
+    let j = K - 1;
+    while (j > 0 && (topIdx[j - 1] === -1 || p > topVal[j - 1])) {
+      topIdx[j] = topIdx[j - 1];
+      topVal[j] = topVal[j - 1];
+      j--;
+    }
+    topIdx[j] = i;
+    topVal[j] = p;
+  }
 
-  const top_k = indexed.slice(0, 5).map(({ i, p }) => ({
-    gloss: idToGloss[i] ?? `#${i}`,
-    confidence: p,
-  }));
+  const top_k: { gloss: string; confidence: number }[] = [];
+  for (let k = 0; k < K; k++) {
+    if (topIdx[k] < 0) break;
+    top_k.push({ gloss: idToGloss[topIdx[k]] ?? `#${topIdx[k]}`, confidence: topVal[k] });
+  }
 
   return {
     gloss:        top_k[0].gloss,
@@ -140,8 +156,11 @@ async function processFeatures(data: ArrayBuffer) {
   normBuffer.push(movNorm);
   if (ringBuffer.length > MAX_BUFFER_SIZE) { ringBuffer.shift(); normBuffer.shift(); }
 
-  // Report current buffer size to main thread every frame
-  self.postMessage({ type: "frames", count: ringBuffer.length } satisfies InferenceWorkerOut);
+  // Report current buffer size only when it actually changes
+  if (ringBuffer.length !== lastReportedFrameCount) {
+    lastReportedFrameCount = ringBuffer.length;
+    self.postMessage({ type: "frames", count: ringBuffer.length } satisfies InferenceWorkerOut);
+  }
 
   // Throttled live candidate — runs every LIVE_EVERY frames while buffer has enough data
   liveFrameCtr++;
@@ -163,6 +182,7 @@ async function processFeatures(data: ArrayBuffer) {
     normBuffer.length = 0;
     restCounter = 0;
     liveFrameCtr = 0;
+    lastReportedFrameCount = 0;
     self.postMessage({ type: "frames", count: 0 } satisfies InferenceWorkerOut);
 
     if (result) {
@@ -180,6 +200,7 @@ function resetBuffers() {
   normBuffer.length = 0;
   restCounter  = 0;
   liveFrameCtr = 0;
+  lastReportedFrameCount = 0;
   self.postMessage({ type: "frames", count: 0 } satisfies InferenceWorkerOut);
 }
 

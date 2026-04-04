@@ -43,6 +43,12 @@ function mapToSphere(x: number, y: number): THREE.Vector3 {
 
 const SIGN_POS: THREE.Vector3[] = SIGNS.map((s) => mapToSphere(s.x, s.y));
 
+// Scratch vectors — reused every frame to avoid GC pressure
+const _camNorm  = new THREE.Vector3();
+const _outward  = new THREE.Vector3();
+const _camDir   = new THREE.Vector3();
+const _desired  = new THREE.Vector3();
+
 // Deduplicated minimal-pair edges [ idA, idB ]
 const MINIMAL_PAIR_EDGES: [number, number][] = (() => {
   const edges: [number, number][] = [];
@@ -60,6 +66,13 @@ const MINIMAL_PAIR_EDGES: [number, number][] = (() => {
 // DOT_PX is the target screen radius in pixels.
 // scaleK is recomputed each frame from the actual canvas height (see GlobeScene).
 const DOT_PX = 7;
+
+// Static geometries — created once at module level, shared by all instances
+const DOT_GEO    = new THREE.SphereGeometry(1, 8, 8);
+const CURSOR_GEO = new THREE.SphereGeometry(1, 12, 12);
+const COMET_HEAD_GEO = new THREE.SphereGeometry(1, 12, 12);
+const COMET_GLOW_GEO = new THREE.SphereGeometry(1, 8,  8);
+const TRAIL_GEO      = new THREE.SphereGeometry(1, 6,  6);
 
 // ── Fibonacci sphere background ────────────────────────────────────
 
@@ -108,12 +121,12 @@ function MinimalPairEdges() {
   );
 
   useFrame(({ camera }) => {
-    const camNorm = camera.position.clone().normalize();
+    _camNorm.copy(camera.position).normalize();
     for (let i = 0; i < MINIMAL_PAIR_EDGES.length; i++) {
       const [a, b] = MINIMAL_PAIR_EDGES[i];
       lineObjs[i].visible =
-        SIGN_POS[a].dot(camNorm) > -0.05 &&
-        SIGN_POS[b].dot(camNorm) > -0.05;
+        SIGN_POS[a].dot(_camNorm) > -0.05 &&
+        SIGN_POS[b].dot(_camNorm) > -0.05;
     }
   });
 
@@ -166,9 +179,6 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
 
   // Smoothed probability cloud — lerps toward allProbs, decays to 0 when no candidate
   const smoothRef = useRef<Float32Array>(new Float32Array(SIGNS.length));
-  // Radius=1 geometry — scaled per-frame to maintain constant screen size
-  const dotGeo    = useMemo(() => new THREE.SphereGeometry(1, 8, 8), []);
-  const cursorGeo = useMemo(() => new THREE.SphereGeometry(1, 12, 12), []);
 
   // ── Comet trail: live probability-centroid trajectory on S² ──────
   const TRAIL_N       = 22;
@@ -183,9 +193,6 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
   const trailFrameCtr = useRef(0);
   const cometFlash    = useRef(0);
 
-  const cometHeadGeo = useMemo(() => new THREE.SphereGeometry(1, 12, 12), []);
-  const cometGlowGeo = useMemo(() => new THREE.SphereGeometry(1, 8,  8),  []);
-  const trailGeo     = useMemo(() => new THREE.SphereGeometry(1, 6,  6),  []);
   const cometHeadMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: "#ffffff", emissive: "#7dcfe0", emissiveIntensity: 2.8,
     roughness: 0.05,
@@ -218,13 +225,13 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
     }
 
     // ── Hemisphere culling + uniform dot size ─────────────────────
-    const camNorm = camera.position.clone().normalize();
+    _camNorm.copy(camera.position).normalize();
     for (let i = 0; i < SIGNS.length; i++) {
       const group = groupRefs.current[i];
       const dot   = dotRefs.current[i];
       if (!group || !dot) continue;
 
-      const onFront = SIGN_POS[i].dot(camNorm) > -0.05;
+      const onFront = SIGN_POS[i].dot(_camNorm) > -0.05;
       group.visible = onFront;
 
       if (onFront) {
@@ -263,8 +270,8 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
 
     // ── Position floating label just outside globe surface at cursor ──
     if (labelGroupRef.current && cursorRef.current && hasTarget.current) {
-      const outward = cursorRef.current.position.clone().normalize();
-      labelGroupRef.current.position.copy(outward.multiplyScalar(R + 0.42));
+      _outward.copy(cursorRef.current.position).normalize().multiplyScalar(R + 0.42);
+      labelGroupRef.current.position.copy(_outward);
     }
     if (!cursorRef.current) return;
     if (hasTarget.current) {
@@ -283,10 +290,10 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
     // ── Slowly rotate globe so predicted sign faces camera ────────
     if (targetCamDir.current) {
       const camDist = camera.position.length();
-      const camDir  = camera.position.clone().normalize();
-      if (camDir.dot(targetCamDir.current) < 0.998) {
-        const desired = targetCamDir.current.clone().multiplyScalar(camDist);
-        camera.position.lerp(desired, 0.06);
+      _camDir.copy(camera.position).normalize();
+      if (_camDir.dot(targetCamDir.current) < 0.998) {
+        _desired.copy(targetCamDir.current).multiplyScalar(camDist);
+        camera.position.lerp(_desired, 0.06);
         camera.position.setLength(camDist);
         controlsRef.current?.update();
       } else {
@@ -382,7 +389,7 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
           {/* Dot */}
           <mesh
             ref={(el) => { dotRefs.current[i] = el; }}
-            geometry={dotGeo}
+            geometry={DOT_GEO}
             material={dotMats[i]}
             onPointerOver={(e) => { e.stopPropagation(); onHover(s.id); }}
             onPointerOut={() => onHover(null)}
@@ -404,7 +411,7 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
       ))}
 
       {/* Cursor — pulses on prediction */}
-      <mesh ref={cursorRef} geometry={cursorGeo}>
+      <mesh ref={cursorRef} geometry={CURSOR_GEO}>
         <meshBasicMaterial color="#ffffff" transparent opacity={0} depthWrite={false} />
       </mesh>
 
@@ -427,17 +434,17 @@ function GlobeScene({ hoveredId, onHover }: SceneProps) {
       )}
 
       {/* Comet glow halo — rendered behind head */}
-      <mesh ref={cometGlowRef} geometry={cometGlowGeo} material={cometGlowMat} visible={false} renderOrder={1} />
+      <mesh ref={cometGlowRef} geometry={COMET_GLOW_GEO} material={cometGlowMat} visible={false} renderOrder={1} />
 
       {/* Comet head */}
-      <mesh ref={cometHeadRef} geometry={cometHeadGeo} material={cometHeadMat} visible={false} renderOrder={3} />
+      <mesh ref={cometHeadRef} geometry={COMET_HEAD_GEO} material={cometHeadMat} visible={false} renderOrder={3} />
 
       {/* Comet trail — fading spheres */}
       {Array.from({ length: TRAIL_N }, (_, i) => (
         <mesh
           key={`trail-${i}`}
           ref={el => { trailRefs.current[i] = el; }}
-          geometry={trailGeo}
+          geometry={TRAIL_GEO}
           material={trailMats[i]}
           visible={false}
           renderOrder={2}
