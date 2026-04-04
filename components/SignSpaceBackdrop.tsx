@@ -4,22 +4,7 @@ import { useRef, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useAppStore } from "@/store/appStore";
-import RAW_DATA from "@/public/data/sign_space.json";
-import VOCAB from "@/public/data/vocab.json";
-
-// ── Data ───────────────────────────────────────────────────────────────────
-
-const GLOSS_TO_LABEL: Record<string, number> = Object.fromEntries(
-  Object.entries(VOCAB.id_to_gloss).map(([k, v]) => [v, Number(k)])
-);
-
-interface SignEntry {
-  id: number; gloss: string;
-  x: number; y: number; z: number;
-  cluster: number; color: string; minimal_pair: string | null;
-}
-const SIGNS = RAW_DATA as SignEntry[];
-const GLOSS_TO_IDX = Object.fromEntries(SIGNS.map((s) => [s.gloss, s.id]));
+import { SIGNS, GLOSS_TO_LABEL, GLOSS_TO_IDX } from "@/lib/signData";
 
 const R  = 1.62;
 const X0 = -1.90, X1 = 1.90;
@@ -43,6 +28,16 @@ const _desired = new THREE.Vector3();
 const _camNorm = new THREE.Vector3();
 const DOT_PX   = 8;
 const CAM_DIST = 3.4;
+
+// Static geometries and materials — created once at module level
+const DOT_GEO   = new THREE.SphereGeometry(1, 6, 6);
+const COMET_GEO = new THREE.SphereGeometry(1, 10, 10);
+const COMET_MAT = new THREE.MeshStandardMaterial({
+  color: "#ffffff", emissive: "#7dcfe0", emissiveIntensity: 3.0, roughness: 0.05,
+});
+const DOT_MATS = SIGNS.map((s) => new THREE.MeshBasicMaterial({
+  color: s.color, transparent: true, opacity: 0.55,
+}));
 
 // ── Fibonacci sphere (no Text, no edges — just atmosphere) ─────────────────
 
@@ -97,19 +92,10 @@ function BackdropScene() {
   const cometGlowRef = useRef<THREE.Mesh>(null);
   const cometFlash  = useRef(0);
 
-  const dotMats = useMemo(() =>
-    SIGNS.map((s) => new THREE.MeshBasicMaterial({
-      color: s.color,
-      transparent: true,
-      opacity: 0.55,
-    })),
-  []);
-
-  const dotGeo   = useMemo(() => new THREE.SphereGeometry(1, 6, 6), []);
-  const cometGeo = useMemo(() => new THREE.SphereGeometry(1, 10, 10), []);
-  const cometMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: "#ffffff", emissive: "#7dcfe0", emissiveIntensity: 3.0, roughness: 0.05,
-  }), []);
+  const dotMats  = DOT_MATS;
+  const dotGeo   = DOT_GEO;
+  const cometGeo = COMET_GEO;
+  const cometMat = COMET_MAT;
 
   useFrame(({ camera, clock }, dt) => {
     // Run backdrop at ~30fps (skip odd frames)

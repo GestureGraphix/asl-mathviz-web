@@ -19,18 +19,12 @@
  * Animation replays the 30-frame trajectory extracted around the peak frame.
  */
 
-import katex from "katex";
+import { tex } from "@/lib/tex";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { useRef, useState, useMemo, useCallback, useEffect } from "react";
 import * as THREE from "three";
 import SIGNS_RAW from "@/public/data/canonical_signs.json";
-
-// ── Pre-rendered KaTeX (runs once at module load) ──────────────────
-function tex(s: string) {
-  try { return katex.renderToString(s, { throwOnError: false }); }
-  catch { return s; }
-}
 const TEX = {
   ft:    tex(String.raw`f_t \in \mathbb{R}^{51} = u^H \oplus u^L \oplus u^O \oplus u^M \oplus u^N`),
   theta: tex(String.raw`\theta_k = \angle\!\bigl(v_{\scriptscriptstyle\mathrm{MCP},k} - v_w,\; v_{\scriptscriptstyle\mathrm{tip},k} - v_{\scriptscriptstyle\mathrm{MCP},k}\bigr)`),

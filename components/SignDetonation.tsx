@@ -3,11 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/appStore";
-import RAW_SPACE from "@/public/data/sign_space.json";
-
-const GLOSS_TO_COLOR: Record<string, string> = Object.fromEntries(
-  (RAW_SPACE as { gloss: string; color: string }[]).map((s) => [s.gloss, s.color])
-);
+import { GLOSS_TO_COLOR } from "@/lib/signData";
 
 // Regular pentagon: H top, then clockwise
 const FRAGMENTS = [

@@ -1,22 +1,10 @@
 "use client";
 
-import katex from "katex";
+import { renderTex, tex } from "@/lib/tex";
 import { memo } from "react";
 
-// ── Pre-render helper (runs once at module load, never during render) ─────────
-
-function renderTex(tex: string, block: boolean): string {
-  try {
-    return katex.renderToString(tex, { displayMode: block, throwOnError: false });
-  } catch {
-    return `<span>${tex}</span>`;
-  }
-}
-
 function renderInlineLabel(label: string): string {
-  return label.replace(/\\\((.*?)\\\)/g, (_, t) =>
-    katex.renderToString(t, { throwOnError: false })
-  );
+  return label.replace(/\\\((.*?)\\\)/g, (_, t) => tex(t));
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────

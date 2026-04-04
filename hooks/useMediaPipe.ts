@@ -8,6 +8,16 @@ import { fingerspellingH } from "@/lib/phonology";
 import { inferenceWorkerBridge } from "@/lib/inferenceWorkerBridge";
 import type { MediaPipeWorkerOut, Landmarks } from "@/types";
 
+// Pre-allocated transfer buffers — avoids .slice() copy on every frame.
+// We alternate between two buffers so we always have one ready to fill
+// while the previous one may still be in-flight via postMessage transfer.
+const SIGN_FV_DIM = 46;
+const FS_FV_DIM   = 13;
+let signBufIdx = 0;
+const signTransferBufs = [new ArrayBuffer(SIGN_FV_DIM * 4), new ArrayBuffer(SIGN_FV_DIM * 4)];
+let fsBufIdx = 0;
+const fsTransferBufs = [new ArrayBuffer(FS_FV_DIM * 4), new ArrayBuffer(FS_FV_DIM * 4)];
+
 interface UseMediaPipeOptions {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   enabled?: boolean;
@@ -75,13 +85,22 @@ export function useMediaPipe({ videoRef, enabled = true }: UseMediaPipeOptions) 
             const hand = landmarks.right_hand ?? landmarks.left_hand;
             if (hand) {
               const fsFeats = fingerspellingH(hand);
-              const buf = fsFeats.buffer.slice(fsFeats.byteOffset, fsFeats.byteOffset + fsFeats.byteLength);
+              // Double-buffer: copy into pre-allocated buffer, transfer it,
+              // then swap to the other buffer for next frame
+              const buf = fsTransferBufs[fsBufIdx];
+              fsBufIdx = 1 - fsBufIdx;
+              new Float32Array(buf).set(fsFeats);
               infWorker.postMessage({ type: "features_fs", data: buf }, [buf]);
+              // Replace the transferred buffer so the pool stays filled
+              fsTransferBufs[1 - fsBufIdx] = new ArrayBuffer(FS_FV_DIM * 4);
             }
           } else {
             const fv  = features.feature_vector;
-            const buf = fv.buffer.slice(fv.byteOffset, fv.byteOffset + fv.byteLength);
+            const buf = signTransferBufs[signBufIdx];
+            signBufIdx = 1 - signBufIdx;
+            new Float32Array(buf).set(fv);
             infWorker.postMessage({ type: "features", data: buf }, [buf]);
+            signTransferBufs[1 - signBufIdx] = new ArrayBuffer(SIGN_FV_DIM * 4);
           }
         }
       }

@@ -5,18 +5,9 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/store/appStore";
-import RAW_SPACE from "@/public/data/sign_space.json";
-import VOCAB_DATA from "@/public/data/vocab.json";
-
-// Sign color lookup for burst overlay
-const GLOSS_TO_COLOR: Record<string, string> = Object.fromEntries(
-  (RAW_SPACE as { gloss: string; color: string }[]).map((s) => [s.gloss, s.color])
-);
+import { SIGNS as SIGN_ENTRIES, GLOSS_TO_COLOR, GLOSS_TO_LABEL as GLOSS_TO_LABEL_G } from "@/lib/signData";
 
 // ── Globe data ────────────────────────────────────────────────────────────────
-
-type RawSign = { id: number; gloss: string; x: number; y: number; color: string; cluster: number; minimal_pair: string | null };
-const SIGN_ENTRIES = RAW_SPACE as RawSign[];
 
 const GLOBE_X0 = -1.90, GLOBE_X1 = 1.90;
 const GLOBE_Y0 = -1.80, GLOBE_Y1 = 1.55;
@@ -33,10 +24,6 @@ function mapSignToUnit(x: number, y: number): THREE.Vector3 {
 
 const SIGN_POS_UNIT = SIGN_ENTRIES.map(s => mapSignToUnit(s.x, s.y));
 const GLOSS_TO_SIGN_IDX = Object.fromEntries(SIGN_ENTRIES.map((s, i) => [s.gloss, i]));
-const GLOSS_TO_LABEL_G: Record<string, number> = Object.fromEntries(
-  Object.entries((VOCAB_DATA as { id_to_gloss: Record<string, string> }).id_to_gloss)
-    .map(([k, v]) => [v, Number(k)])
-);
 
 // MediaPipe hand bone connections
 const CONNECTIONS: [number, number][] = [

@@ -18,9 +18,7 @@ import { PhonologyArcs } from "@/components/PhonologyArcs";
 import { SignDetonation } from "@/components/SignDetonation";
 import { PhonologicalSpectrogram } from "@/components/PhonologicalSpectrogram";
 import { useInference } from "@/hooks/useInference";
-import VOCAB_DATA from "@/public/data/vocab.json";
-
-const VOCAB_GLOSSES = Object.values(VOCAB_DATA.id_to_gloss) as string[];
+import { VOCAB_GLOSSES } from "@/lib/signData";
 
 type AppMode = "recognize" | "generate" | "geodesic";
 

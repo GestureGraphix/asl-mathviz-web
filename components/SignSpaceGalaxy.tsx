@@ -5,25 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Text } from "@react-three/drei";
 import * as THREE from "three";
 import { useAppStore } from "@/store/appStore";
-import RAW_DATA from "@/public/data/sign_space.json";
-import VOCAB from "@/public/data/vocab.json";
-
-// gloss → softmax label index (matching inference worker's idToGloss)
-const GLOSS_TO_LABEL: Record<string, number> = Object.fromEntries(
-  Object.entries(VOCAB.id_to_gloss).map(([k, v]) => [v, Number(k)])
-);
-
-// ── Data ───────────────────────────────────────────────────────────
-
-interface SignEntry {
-  id: number; gloss: string;
-  x: number; y: number; z: number;
-  cluster: number; color: string;
-  category: string; minimal_pair: string | null;
-}
-
-const SIGNS = RAW_DATA as SignEntry[];
-const GLOSS_TO_IDX = Object.fromEntries(SIGNS.map((s) => [s.gloss, s.id]));
+import { SIGNS, GLOSS_TO_LABEL, GLOSS_TO_IDX } from "@/lib/signData";
 
 // ── Sphere projection ──────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 "use client";
 
-import katex from "katex";
+import { renderTex } from "@/lib/tex";
 
 interface KaTeXProps {
   math: string;
@@ -9,10 +9,7 @@ interface KaTeXProps {
 }
 
 export function KaTeX({ math, display = false, className }: KaTeXProps) {
-  const html = katex.renderToString(math, {
-    throwOnError: false,
-    displayMode: display,
-  });
+  const html = renderTex(math, display);
   return (
     <span
       className={className}

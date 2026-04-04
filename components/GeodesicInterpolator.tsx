@@ -1,12 +1,6 @@
 "use client";
 
-import katex from "katex";
-
-// ── Pre-rendered KaTeX (module load, never during render) ──────────
-function tex(s: string) {
-  try { return katex.renderToString(s, { throwOnError: false }); }
-  catch { return s; }
-}
+import { tex } from "@/lib/tex";
 const GEO_TEX = {
   gamma: tex(String.raw`\gamma(\alpha_H,\,\alpha_L,\,\alpha_O)`),
   dphi:  tex(String.raw`d_\phi = \lVert s_A - s_B \rVert_2`),
@@ -31,7 +25,7 @@ import { OrbitControls, Html } from "@react-three/drei";
 import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import * as THREE from "three";
 import SIGNS_RAW from "@/public/data/canonical_signs.json";
-import SPACE_RAW  from "@/public/data/sign_space.json";
+import { SIGNS as SPACE } from "@/lib/signData";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -55,16 +49,7 @@ interface CanonicalSign {
   left_movement_trajectory: number[][] | null;
 }
 
-interface SpaceEntry {
-  id: number;
-  gloss: string;
-  x: number;
-  y: number;
-  color: string;
-}
-
 const SIGNS = SIGNS_RAW as CanonicalSign[];
-const SPACE = SPACE_RAW as SpaceEntry[];
 
 // ── S² mapping — matches SignSpaceGalaxy coordinate range ──────────
 
