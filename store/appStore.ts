@@ -43,6 +43,6 @@ export const useAppStore = create<AppState>((set) => ({
 
   clearTranscript: () => set({ transcript: [] }),
   setModelMode: (modelMode: ModelMode) => set({ modelMode, fsLetter: null }),
-  setSignModelVersion: (signModelVersion: SignModelVersion) => set({ signModelVersion }),
+  setSignModelVersion: (signModelVersion: SignModelVersion) => set({ signModelVersion, prediction: null, candidate: null }),
   setFsLetter: (fsLetter: string | null) => set({ fsLetter }),
 }));

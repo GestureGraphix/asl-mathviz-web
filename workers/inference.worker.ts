@@ -34,6 +34,9 @@ let restCounter  = 0;
 let liveFrameCtr = 0;
 let lastReportedFrameCount = -1;
 const LIVE_EVERY = 15;  // send a live candidate every N frames (~500ms at 30fps)
+// v2 ONNX was exported with a T=60 dummy input; despite dynamic_axes the internal
+// attention Reshape node is hardcoded at seq_len+1=61.  Only T=60 runs without error.
+const V2_SEQ_LEN = 60;
 
 // ── Softmax ───────────────────────────────────────────────────────
 function softmax(logits: Float32Array): Float32Array {
@@ -110,12 +113,28 @@ async function runInference(): Promise<InferenceResult | null> {
   const idToGloss = activeVersion === "v1" ? idToGlossV1 : idToGlossV2;
   if (!session || ringBuffer.length < MIN_SIGN_FRAMES) return null;
 
-  const T   = ringBuffer.length;
   const dim = activeVersion === "v1" ? 46 : 153;
 
-  const data = new Float32Array(T * dim);
-  for (let t = 0; t < T; t++) {
-    data.set(ringBuffer[t], t * dim);
+  let data: Float32Array;
+  let T: number;
+  if (activeVersion === "v2") {
+    // Always feed exactly V2_SEQ_LEN frames — the ONNX attention Reshape is hardcoded
+    // at that length.  Zero-pad the start when the buffer is shorter; take the last
+    // V2_SEQ_LEN frames when it is longer.
+    T = V2_SEQ_LEN;
+    data = new Float32Array(T * dim);
+    const available  = Math.min(ringBuffer.length, V2_SEQ_LEN);
+    const padFrames  = V2_SEQ_LEN - available;
+    const bufStart   = ringBuffer.length - available;
+    for (let t = 0; t < available; t++) {
+      data.set(ringBuffer[bufStart + t], (padFrames + t) * dim);
+    }
+  } else {
+    T = ringBuffer.length;
+    data = new Float32Array(T * dim);
+    for (let t = 0; t < T; t++) {
+      data.set(ringBuffer[t], t * dim);
+    }
   }
 
   const tensor = new ort.Tensor("float32", data, [1, T, dim]);
@@ -207,18 +226,27 @@ async function processFeatures(data: ArrayBuffer) {
   liveFrameCtr++;
   if (liveFrameCtr >= LIVE_EVERY) {
     liveFrameCtr = 0;
-    const live = await runInference();
-    if (live) {
-      const t: ArrayBuffer[] = [];
-      if (live.allProbs)     t.push(live.allProbs.buffer as ArrayBuffer);
-      if (live.attn_weights) t.push(live.attn_weights.buffer as ArrayBuffer);
-      self.postMessage({ type: "live", data: live } satisfies InferenceWorkerOut, t);
+    try {
+      const live = await runInference();
+      if (live) {
+        const t: ArrayBuffer[] = [];
+        if (live.allProbs)     t.push(live.allProbs.buffer as ArrayBuffer);
+        if (live.attn_weights) t.push(live.attn_weights.buffer as ArrayBuffer);
+        self.postMessage({ type: "live", data: live } satisfies InferenceWorkerOut, t);
+      }
+    } catch (err) {
+      self.postMessage({ type: "error", message: `[inference live] ${String(err)}` } satisfies InferenceWorkerOut);
     }
   }
 
   // Trigger committed inference at sign boundary
   if (restCounter === REST_FRAMES && ringBuffer.length >= MIN_SIGN_FRAMES) {
-    const result = await runInference();
+    let result: InferenceResult | null = null;
+    try {
+      result = await runInference();
+    } catch (err) {
+      self.postMessage({ type: "error", message: `[inference commit] ${String(err)}` } satisfies InferenceWorkerOut);
+    }
     ringBuffer.length = 0;
     normBuffer.length = 0;
     restCounter = 0;
