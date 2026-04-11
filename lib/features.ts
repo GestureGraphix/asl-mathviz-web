@@ -75,13 +75,17 @@ export function assembleRaw153(landmarks: Landmarks): Float32Array {
 
   const ub = new Float32Array(27);
   if (landmarks.pose && sim3) {
-    const ubRaw = new Float32Array(27);
+    // applySim3 is hardcoded for 21-landmark hands (returns Float32Array(63)).
+    // Upper body is 9 landmarks (27 values), so apply the transform inline.
+    const { scale, tx, ty, tz, cosA, sinA } = sim3;
     UB_IDX.forEach((lmIdx, i) => {
-      ubRaw[i * 3]     = landmarks.pose![lmIdx * 3];
-      ubRaw[i * 3 + 1] = landmarks.pose![lmIdx * 3 + 1];
-      ubRaw[i * 3 + 2] = landmarks.pose![lmIdx * 3 + 2];
+      const x = (landmarks.pose![lmIdx * 3]     - tx) / scale;
+      const y = (landmarks.pose![lmIdx * 3 + 1] - ty) / scale;
+      const z = (landmarks.pose![lmIdx * 3 + 2] - tz) / scale;
+      ub[i * 3]     =  cosA * x + sinA * y;
+      ub[i * 3 + 1] = -sinA * x + cosA * y;
+      ub[i * 3 + 2] =  z;
     });
-    ub.set(applySim3(ubRaw, sim3));
   }
 
   const feat = new Float32Array(153);
