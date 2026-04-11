@@ -66,8 +66,9 @@ export default function Home() {
   const setSignModelVersion = useAppStore((s) => s.setSignModelVersion);
   const fsLetter           = useAppStore((s) => s.fsLetter);
 
-  // ── Auto-geodesic: fires on every new committed prediction pair ──
+  // ── Auto-geodesic: fires on every new committed prediction pair (v1 only) ──
   useEffect(() => {
+    if (signModelVersion !== "v1") return;
     if (!prediction) return;
     const prev = prevPredRef.current;
     prevPredRef.current = prediction.gloss;
@@ -76,7 +77,7 @@ export default function Home() {
     if (autoGeoTimerRef.current) clearTimeout(autoGeoTimerRef.current);
     setAutoGeo({ a: prev, b: prediction.gloss });
     autoGeoTimerRef.current = setTimeout(() => setAutoGeo(null), 6000);
-  }, [prediction]);
+  }, [prediction, signModelVersion]);
 
   useEffect(() => () => {
     if (autoGeoTimerRef.current) clearTimeout(autoGeoTimerRef.current);
@@ -280,7 +281,11 @@ export default function Home() {
               </div>
             )}
 
-            {modelMode === "signs" && <PredictionOverlay onShowCanonical={handleShowCanonical} />}
+            {modelMode === "signs" && (
+              <PredictionOverlay
+                onShowCanonical={signModelVersion === "v1" ? handleShowCanonical : undefined}
+              />
+            )}
 
             {/* ── Live top-k readout (persists between predictions) ── */}
             {status === "live" && modelMode === "signs" && (candidate || prediction) && (() => {
@@ -326,10 +331,10 @@ export default function Home() {
                 </div>
               );
             })()}
-            {modelMode === "signs" && <AttentionStrip />}
-            {status === "live" && modelMode === "signs" && <PhonologicalSpectrogram />}
-            {status === "live" && modelMode === "signs" && <PhonologyArcs />}
-            {status === "live" && modelMode === "signs" && <SignDetonation />}
+            {modelMode === "signs" && signModelVersion === "v1" && <AttentionStrip />}
+            {status === "live" && modelMode === "signs" && signModelVersion === "v1" && <PhonologicalSpectrogram />}
+            {status === "live" && modelMode === "signs" && signModelVersion === "v1" && <PhonologyArcs />}
+            {status === "live" && modelMode === "signs" && signModelVersion === "v1" && <SignDetonation />}
 
             {status === "idle" && (
               <CenteredMessage>Requesting camera…</CenteredMessage>
@@ -375,43 +380,63 @@ export default function Home() {
           {/* ── Right: sidebar (hidden in cinema + generate mode) ── */}
           {mode === "recognize" && !isCinema && (
             <div className="app-sidebar">
-              <div className="sidebar-section">
-                <span className="section-header">Phonological Features</span>
-                <PhonologyBars />
-              </div>
+              {signModelVersion === "v1" && (
+                <>
+                  <div className="sidebar-section">
+                    <span className="section-header">Phonological Features</span>
+                    <PhonologyBars />
+                  </div>
 
-              <div className="sidebar-section">
-                <span className="section-header">Codebook Activations</span>
-                <CodebookGrid />
-              </div>
+                  <div className="sidebar-section">
+                    <span className="section-header">Codebook Activations</span>
+                    <CodebookGrid />
+                  </div>
 
-              <div className="sidebar-section">
-                <span className="section-header">Minimal Pair</span>
-                <MinimalPairPanel onViewGeodesic={handleViewGeodesic} />
-              </div>
+                  <div className="sidebar-section">
+                    <span className="section-header">Minimal Pair</span>
+                    <MinimalPairPanel onViewGeodesic={handleViewGeodesic} />
+                  </div>
 
-              <div className="sidebar-section">
-                <span className="section-header">Vocabulary · {VOCAB_GLOSSES.length} signs</span>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                  {VOCAB_GLOSSES.map((gloss) => (
-                    <span
-                      key={gloss}
-                      style={{
-                        fontFamily: "var(--font-mono, monospace)",
-                        fontSize: 9,
-                        color: "var(--ink4)",
-                        background: "var(--bg-raised)",
-                        border: "1px solid var(--rule)",
-                        borderRadius: 3,
-                        padding: "2px 5px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {gloss.toLowerCase().replace(/_/g, " ")}
-                    </span>
-                  ))}
+                  <div className="sidebar-section">
+                    <span className="section-header">Vocabulary · {VOCAB_GLOSSES.length} signs</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                      {VOCAB_GLOSSES.map((gloss) => (
+                        <span
+                          key={gloss}
+                          style={{
+                            fontFamily: "var(--font-mono, monospace)",
+                            fontSize: 9,
+                            color: "var(--ink4)",
+                            background: "var(--bg-raised)",
+                            border: "1px solid var(--rule)",
+                            borderRadius: 3,
+                            padding: "2px 5px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {gloss.toLowerCase().replace(/_/g, " ")}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {signModelVersion === "v2" && (
+                <div className="sidebar-section">
+                  <span className="section-header">Vocabulary · 2,279 signs</span>
+                  <p style={{
+                    fontFamily: "var(--font-ui, Figtree, sans-serif)",
+                    fontSize: 11,
+                    color: "var(--ink4)",
+                    lineHeight: 1.6,
+                    margin: 0,
+                  }}>
+                    Raw-keypoint transformer trained on ASL Citizen + WLASL across 2,279 glosses.
+                    Top-5 predictions shown live.
+                  </p>
                 </div>
-              </div>
+              )}
 
               {/* Keyboard shortcuts */}
               <div className="demo-keyboard-hints" style={{
