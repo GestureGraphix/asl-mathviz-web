@@ -52,7 +52,8 @@ export function useInference({ enabled = true }: { enabled?: boolean } = {}) {
       } else if (msg.type === "result") {
         const result = msg.data;
         setCandidate(null);
-        if (result.confidence >= 0.65) {
+        const threshold = useAppStore.getState().signModelVersion === "v2" ? 0.35 : 0.65;
+        if (result.confidence >= threshold) {
           setPrediction(result);
           pushTranscript({
             gloss:        result.gloss,

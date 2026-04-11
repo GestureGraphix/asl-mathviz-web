@@ -55,6 +55,7 @@ export default function Home() {
   useInference({ enabled: isRecognizing });
 
   const status         = useAppStore((s) => s.status);
+  const candidate      = useAppStore((s) => s.candidate);
   const landmarks      = useAppStore((s) => s.landmarks);
   const clearTranscript = useAppStore((s) => s.clearTranscript);
   const setStatus      = useAppStore((s) => s.setStatus);
@@ -280,6 +281,49 @@ export default function Home() {
             )}
 
             {modelMode === "signs" && <PredictionOverlay onShowCanonical={handleShowCanonical} />}
+
+            {/* ── Live top-k readout (always visible while active) ── */}
+            {status === "live" && modelMode === "signs" && candidate && (
+              <div style={{
+                position: "absolute", top: 60, right: 14, zIndex: 10,
+                background: "rgba(4,8,18,0.82)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 6, padding: "8px 12px",
+                backdropFilter: "blur(6px)",
+                pointerEvents: "none", minWidth: 160,
+              }}>
+                <div style={{
+                  fontFamily: "var(--font-mono, monospace)",
+                  fontSize: 9, color: "rgba(255,255,255,0.3)",
+                  letterSpacing: "0.08em", marginBottom: 6,
+                }}>
+                  live · top-5
+                </div>
+                {candidate.top_k.slice(0, 5).map((entry, i) => (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    marginBottom: i < 4 ? 4 : 0,
+                  }}>
+                    <span style={{
+                      fontFamily: "var(--font-mono, monospace)",
+                      fontSize: 10,
+                      color: i === 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
+                      flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {entry.gloss.toLowerCase().replace(/_/g, " ")}
+                    </span>
+                    <span style={{
+                      fontFamily: "var(--font-mono, monospace)",
+                      fontSize: 10,
+                      color: i === 0 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.25)",
+                      minWidth: 32, textAlign: "right",
+                    }}>
+                      {Math.round(entry.confidence * 100)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             {modelMode === "signs" && <AttentionStrip />}
             {status === "live" && modelMode === "signs" && <PhonologicalSpectrogram />}
             {status === "live" && modelMode === "signs" && <PhonologyArcs />}
