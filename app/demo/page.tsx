@@ -282,48 +282,50 @@ export default function Home() {
 
             {modelMode === "signs" && <PredictionOverlay onShowCanonical={handleShowCanonical} />}
 
-            {/* ── Live top-k readout (always visible while active) ── */}
-            {status === "live" && modelMode === "signs" && candidate && (
-              <div style={{
-                position: "absolute", top: 60, right: 14, zIndex: 10,
-                background: "rgba(4,8,18,0.82)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 6, padding: "8px 12px",
-                backdropFilter: "blur(6px)",
-                pointerEvents: "none", minWidth: 160,
-              }}>
+            {/* ── Live top-k readout (persists between predictions) ── */}
+            {status === "live" && modelMode === "signs" && (candidate || prediction) && (() => {
+              const topk = (candidate ?? prediction)!.top_k;
+              const isLive = !!candidate;
+              return (
                 <div style={{
-                  fontFamily: "var(--font-mono, monospace)",
-                  fontSize: 9, color: "rgba(255,255,255,0.3)",
-                  letterSpacing: "0.08em", marginBottom: 6,
+                  position: "absolute", top: 60, right: 14, zIndex: 10,
+                  background: "rgba(4,8,18,0.82)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 6, padding: "8px 12px",
+                  backdropFilter: "blur(6px)",
+                  pointerEvents: "none", minWidth: 160,
                 }}>
-                  live · top-5
-                </div>
-                {candidate.top_k.slice(0, 5).map((entry, i) => (
-                  <div key={i} style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    marginBottom: i < 4 ? 4 : 0,
+                  <div style={{
+                    fontFamily: "var(--font-mono, monospace)",
+                    fontSize: 9, letterSpacing: "0.08em", marginBottom: 6,
+                    color: isLive ? "rgba(62,168,159,0.7)" : "rgba(255,255,255,0.2)",
                   }}>
-                    <span style={{
-                      fontFamily: "var(--font-mono, monospace)",
-                      fontSize: 10,
-                      color: i === 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
-                      flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }}>
-                      {entry.gloss.toLowerCase().replace(/_/g, " ")}
-                    </span>
-                    <span style={{
-                      fontFamily: "var(--font-mono, monospace)",
-                      fontSize: 10,
-                      color: i === 0 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.25)",
-                      minWidth: 32, textAlign: "right",
-                    }}>
-                      {Math.round(entry.confidence * 100)}%
-                    </span>
+                    {isLive ? "live · top-5" : "last · top-5"}
                   </div>
-                ))}
-              </div>
-            )}
+                  {topk.slice(0, 5).map((entry, i) => (
+                    <div key={i} style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      marginBottom: i < 4 ? 4 : 0,
+                    }}>
+                      <span style={{
+                        fontFamily: "var(--font-mono, monospace)", fontSize: 10,
+                        color: i === 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
+                        flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
+                        {entry.gloss.toLowerCase().replace(/_/g, " ")}
+                      </span>
+                      <span style={{
+                        fontFamily: "var(--font-mono, monospace)", fontSize: 10,
+                        color: i === 0 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.25)",
+                        minWidth: 32, textAlign: "right",
+                      }}>
+                        {Math.round(entry.confidence * 100)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
             {modelMode === "signs" && <AttentionStrip />}
             {status === "live" && modelMode === "signs" && <PhonologicalSpectrogram />}
             {status === "live" && modelMode === "signs" && <PhonologyArcs />}

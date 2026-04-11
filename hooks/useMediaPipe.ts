@@ -99,7 +99,11 @@ export function useMediaPipe({ videoRef, enabled = true }: UseMediaPipeOptions) 
             const fv  = signVer === "v2"
               ? assembleRaw153(landmarks)
               : features.feature_vector;
-            const dim = signVer === "v2" ? 153 : 46;
+            const dim = fv.length;
+            // Resize pool buffer if model version switched (dim changed)
+            if (signTransferBufs[signBufIdx].byteLength !== dim * 4) {
+              signTransferBufs[signBufIdx] = new ArrayBuffer(dim * 4);
+            }
             const buf = signTransferBufs[signBufIdx];
             signBufIdx = 1 - signBufIdx;
             new Float32Array(buf).set(fv);
