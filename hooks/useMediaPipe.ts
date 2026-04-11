@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/appStore";
-import { extractFeatures } from "@/lib/features";
+import { extractFeatures, assembleRaw153 } from "@/lib/features";
 import { pushToFeatureBuffer } from "@/lib/featureBuffer";
 import { fingerspellingH } from "@/lib/phonology";
 import { inferenceWorkerBridge } from "@/lib/inferenceWorkerBridge";
@@ -11,7 +11,7 @@ import type { MediaPipeWorkerOut, Landmarks } from "@/types";
 // Pre-allocated transfer buffers — avoids .slice() copy on every frame.
 // We alternate between two buffers so we always have one ready to fill
 // while the previous one may still be in-flight via postMessage transfer.
-const SIGN_FV_DIM = 46;
+const SIGN_FV_DIM = 153;
 const FS_FV_DIM   = 13;
 let signBufIdx = 0;
 const signTransferBufs = [new ArrayBuffer(SIGN_FV_DIM * 4), new ArrayBuffer(SIGN_FV_DIM * 4)];
@@ -95,12 +95,16 @@ export function useMediaPipe({ videoRef, enabled = true }: UseMediaPipeOptions) 
               fsTransferBufs[1 - fsBufIdx] = new ArrayBuffer(FS_FV_DIM * 4);
             }
           } else {
-            const fv  = features.feature_vector;
+            const signVer = useAppStore.getState().signModelVersion;
+            const fv  = signVer === "v2"
+              ? assembleRaw153(landmarks)
+              : features.feature_vector;
+            const dim = signVer === "v2" ? 153 : 46;
             const buf = signTransferBufs[signBufIdx];
             signBufIdx = 1 - signBufIdx;
             new Float32Array(buf).set(fv);
             infWorker.postMessage({ type: "features", data: buf }, [buf]);
-            signTransferBufs[1 - signBufIdx] = new ArrayBuffer(SIGN_FV_DIM * 4);
+            signTransferBufs[1 - signBufIdx] = new ArrayBuffer(dim * 4);
           }
         }
       }

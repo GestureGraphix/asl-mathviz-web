@@ -59,9 +59,11 @@ export default function Home() {
   const clearTranscript = useAppStore((s) => s.clearTranscript);
   const setStatus      = useAppStore((s) => s.setStatus);
   const prediction     = useAppStore((s) => s.prediction);
-  const modelMode      = useAppStore((s) => s.modelMode);
-  const setModelMode   = useAppStore((s) => s.setModelMode);
-  const fsLetter       = useAppStore((s) => s.fsLetter);
+  const modelMode          = useAppStore((s) => s.modelMode);
+  const setModelMode       = useAppStore((s) => s.setModelMode);
+  const signModelVersion   = useAppStore((s) => s.signModelVersion);
+  const setSignModelVersion = useAppStore((s) => s.setSignModelVersion);
+  const fsLetter           = useAppStore((s) => s.fsLetter);
 
   // ── Auto-geodesic: fires on every new committed prediction pair ──
   useEffect(() => {
@@ -200,26 +202,56 @@ export default function Home() {
             {status === "live" && (
               <div style={{
                 position: "absolute", top: 12, left: 12, zIndex: 10,
-                display: "flex",
-                background: "rgba(4,8,18,0.75)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 6, overflow: "hidden",
-                backdropFilter: "blur(6px)",
+                display: "flex", flexDirection: "column", gap: 4,
               }}>
-                {(["signs", "fingerspelling"] as const).map((m) => (
-                  <button key={m} onClick={() => setModelMode(m)} style={{
-                    padding: "4px 12px",
-                    fontSize: 10,
-                    fontFamily: "var(--font-mono, monospace)",
-                    letterSpacing: "0.06em",
-                    background: modelMode === m ? "rgba(255,255,255,0.12)" : "transparent",
-                    color: modelMode === m ? "var(--ink1, #f0f0f0)" : "var(--ink4, #666)",
-                    border: "none", cursor: "pointer",
-                    transition: "background 0.15s, color 0.15s",
+                {/* Row 1: Signs vs A-Z */}
+                <div style={{
+                  display: "flex",
+                  background: "rgba(4,8,18,0.75)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 6, overflow: "hidden",
+                  backdropFilter: "blur(6px)",
+                }}>
+                  {(["signs", "fingerspelling"] as const).map((m) => (
+                    <button key={m} onClick={() => setModelMode(m)} style={{
+                      padding: "4px 12px",
+                      fontSize: 10,
+                      fontFamily: "var(--font-mono, monospace)",
+                      letterSpacing: "0.06em",
+                      background: modelMode === m ? "rgba(255,255,255,0.12)" : "transparent",
+                      color: modelMode === m ? "var(--ink1, #f0f0f0)" : "var(--ink4, #666)",
+                      border: "none", cursor: "pointer",
+                      transition: "background 0.15s, color 0.15s",
+                    }}>
+                      {m === "signs" ? "Signs" : "A–Z"}
+                    </button>
+                  ))}
+                </div>
+                {/* Row 2: sign model version (only when in signs mode) */}
+                {modelMode === "signs" && (
+                  <div style={{
+                    display: "flex",
+                    background: "rgba(4,8,18,0.75)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 6, overflow: "hidden",
+                    backdropFilter: "blur(6px)",
                   }}>
-                    {m === "signs" ? "Signs" : "A–Z"}
-                  </button>
-                ))}
+                    {([["v1", "50 signs"], ["v2", "2,279 signs"]] as const).map(([v, label]) => (
+                      <button key={v} onClick={() => setSignModelVersion(v)} style={{
+                        padding: "3px 10px",
+                        fontSize: 9,
+                        fontFamily: "var(--font-mono, monospace)",
+                        letterSpacing: "0.06em",
+                        background: signModelVersion === v ? "rgba(255,255,255,0.12)" : "transparent",
+                        color: signModelVersion === v ? "var(--ink1, #f0f0f0)" : "var(--ink4, #666)",
+                        border: "none", cursor: "pointer",
+                        transition: "background 0.15s, color 0.15s",
+                      }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

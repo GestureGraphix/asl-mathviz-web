@@ -57,6 +57,40 @@ function l2(v: Float32Array): number {
   return Math.sqrt(v.reduce((s, x) => s + x * x, 0));
 }
 
+// ── Raw 153-dim feature for nb07 model ───────────────────────────
+// Layout: rh(63) + lh(63) + ub(27) — matches nb06 extraction exactly.
+// UPPER_BODY_IDX = [0,11,12,13,14,15,16,23,24] (nose,shoulders,elbows,wrists,hips)
+const UB_IDX = [0, 11, 12, 13, 14, 15, 16, 23, 24];
+
+export function assembleRaw153(landmarks: Landmarks): Float32Array {
+  const sim3 = landmarks.pose ? computeSim3(landmarks.pose) : null;
+
+  const normR = landmarks.right_hand
+    ? (sim3 ? applySim3(landmarks.right_hand, sim3) : landmarks.right_hand)
+    : new Float32Array(63);
+
+  const normL = landmarks.left_hand
+    ? (sim3 ? applySim3(landmarks.left_hand, sim3) : landmarks.left_hand)
+    : new Float32Array(63);
+
+  const ub = new Float32Array(27);
+  if (landmarks.pose && sim3) {
+    const ubRaw = new Float32Array(27);
+    UB_IDX.forEach((lmIdx, i) => {
+      ubRaw[i * 3]     = landmarks.pose![lmIdx * 3];
+      ubRaw[i * 3 + 1] = landmarks.pose![lmIdx * 3 + 1];
+      ubRaw[i * 3 + 2] = landmarks.pose![lmIdx * 3 + 2];
+    });
+    ub.set(applySim3(ubRaw, sim3));
+  }
+
+  const feat = new Float32Array(153);
+  feat.set(normR,  0);
+  feat.set(normL, 63);
+  feat.set(ub,   126);
+  return feat;
+}
+
 // ── Main entry point ──────────────────────────────────────────────
 
 export function extractFeatures(landmarks: Landmarks): PhonologyFeatures {

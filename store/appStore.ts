@@ -3,6 +3,7 @@ import type {
   AppState,
   AppStatus,
   ModelMode,
+  SignModelVersion,
   Landmarks,
   PhonologyFeatures,
   InferenceResult,
@@ -23,6 +24,7 @@ export const useAppStore = create<AppState>((set) => ({
   transcript: [],
   signFrames: 0,
   modelMode: "signs",
+  signModelVersion: "v2" as SignModelVersion,
   fsLetter: null,
 
   setStatus: (status: AppStatus) => set({ status }),
@@ -41,5 +43,6 @@ export const useAppStore = create<AppState>((set) => ({
 
   clearTranscript: () => set({ transcript: [] }),
   setModelMode: (modelMode: ModelMode) => set({ modelMode, fsLetter: null }),
+  setSignModelVersion: (signModelVersion: SignModelVersion) => set({ signModelVersion }),
   setFsLetter: (fsLetter: string | null) => set({ fsLetter }),
 }));

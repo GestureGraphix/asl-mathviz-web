@@ -67,6 +67,7 @@ export interface TranscriptEntry {
 
 export type AppStatus = "idle" | "loading" | "live" | "paused" | "error";
 export type ModelMode = "signs" | "fingerspelling";
+export type SignModelVersion = "v1" | "v2";
 
 export interface AppState {
   status: AppStatus;
@@ -81,6 +82,7 @@ export interface AppState {
   signFrames: number;                  // frames accumulated in current sign buffer
 
   modelMode: ModelMode;
+  signModelVersion: SignModelVersion;
   fsLetter: string | null;             // current fingerspelling letter prediction
 
   // Actions
@@ -95,6 +97,7 @@ export interface AppState {
   pushTranscript: (entry: TranscriptEntry) => void;
   clearTranscript: () => void;
   setModelMode: (m: ModelMode) => void;
+  setSignModelVersion: (v: SignModelVersion) => void;
   setFsLetter: (l: string | null) => void;
 }
 
@@ -117,14 +120,18 @@ export type MediaPipeWorkerOut =
 
 export type InferenceWorkerIn =
   | { type: "init";    modelBuffer: ArrayBuffer; origin: string }
+  | { type: "init_v2"; modelBuffer: ArrayBuffer; origin: string }
   | { type: "init_fs"; modelBuffer: ArrayBuffer; origin: string }
-  | { type: "features";    data: ArrayBuffer }   // (46,) float32 — sign model
+  | { type: "features";    data: ArrayBuffer }   // (46,) float32 — v1 sign model
+  | { type: "features";    data: ArrayBuffer }   // (153,) float32 — v2 sign model
   | { type: "features_fs"; data: ArrayBuffer }   // (13,) float32 — fingerspelling model
   | { type: "set_mode"; mode: ModelMode }
+  | { type: "set_sign_model"; version: SignModelVersion }
   | { type: "reset" };
 
 export type InferenceWorkerOut =
   | { type: "ready" }
+  | { type: "v2_ready" }
   | { type: "fs_ready" }
   | { type: "error"; message: string }
   | { type: "result"; data: InferenceResult }

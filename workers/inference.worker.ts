@@ -5,15 +5,19 @@ import type { InferenceWorkerIn, InferenceWorkerOut, InferenceResult, ModelMode 
 
 declare const self: DedicatedWorkerGlobalScope;
 
-// ── Constants matching v1_inference.py ───────────────────────────
-const REST_NORM_THRESHOLD = 0.5;
+// ── Constants ────────────────────────────────────────────────────
+const REST_NORM_THRESHOLD = 0.008; // frame-to-frame delta in Sim3-normalized coords
 const REST_FRAMES         = 4;
 const MIN_SIGN_FRAMES     = 8;
 const MAX_BUFFER_SIZE     = 120;  // 4s at 30fps
 
 // ── Sign model state ──────────────────────────────────────────────
-let session:  ort.InferenceSession | null = null;
-let idToGloss: Record<number, string>     = {};
+let sessionV1:    ort.InferenceSession | null = null;
+let sessionV2:    ort.InferenceSession | null = null;
+let idToGlossV1:  Record<number, string>      = {};
+let idToGlossV2:  Record<number, string>      = {};
+let activeVersion: "v1" | "v2"               = "v2";
+let prevFrame: Float32Array | null            = null;
 
 // ── Fingerspelling model state ────────────────────────────────────
 let fsSession: ort.InferenceSession | null = null;
@@ -61,15 +65,15 @@ async function init(modelBuffer: ArrayBuffer, origin: string) {
       "ort-wasm.wasm":      `${origin}/ort-wasm.wasm`,
     };
 
-    session = await ort.InferenceSession.create(modelBuffer, {
+    sessionV1 = await ort.InferenceSession.create(modelBuffer, {
       executionProviders: ["wasm"],
       graphOptimizationLevel: "all",
     });
 
-    // Load vocab (absolute URL — self.location is blob: inside module worker)
+    // Load v1 vocab (50 signs)
     const res = await fetch(`${origin}/data/vocab.json`);
     const vocab = await res.json();
-    idToGloss = Object.fromEntries(
+    idToGlossV1 = Object.fromEntries(
       Object.entries(vocab.id_to_gloss).map(([k, v]) => [Number(k), v as string])
     );
 
@@ -82,21 +86,42 @@ async function init(modelBuffer: ArrayBuffer, origin: string) {
   }
 }
 
+// ── Init v2 (2,279-sign raw-keypoint model) ───────────────────────
+async function initV2(modelBuffer: ArrayBuffer, origin: string) {
+  try {
+    sessionV2 = await ort.InferenceSession.create(modelBuffer, {
+      executionProviders: ["wasm"],
+      graphOptimizationLevel: "all",
+    });
+    const res = await fetch(`${origin}/data/vocab_2279.json`);
+    const vocab = await res.json();
+    idToGlossV2 = Object.fromEntries(
+      Object.entries(vocab.id_to_gloss).map(([k, v]) => [Number(k), v as string])
+    );
+    self.postMessage({ type: "v2_ready" } satisfies InferenceWorkerOut);
+  } catch (err) {
+    self.postMessage({ type: "error", message: `[v2] ${String(err)}` } satisfies InferenceWorkerOut);
+  }
+}
+
 // ── Run inference on current buffer ──────────────────────────────
 async function runInference(): Promise<InferenceResult | null> {
+  const session   = activeVersion === "v1" ? sessionV1 : sessionV2;
+  const idToGloss = activeVersion === "v1" ? idToGlossV1 : idToGlossV2;
   if (!session || ringBuffer.length < MIN_SIGN_FRAMES) return null;
 
   const T   = ringBuffer.length;
-  const dim = 46;
+  const dim = activeVersion === "v1" ? 46 : 153;
 
-  // Pack ring buffer into flat Float32Array: shape (1, T, 46)
   const data = new Float32Array(T * dim);
   for (let t = 0; t < T; t++) {
     data.set(ringBuffer[t], t * dim);
   }
 
   const tensor = new ort.Tensor("float32", data, [1, T, dim]);
-  const feeds  = { features: tensor };
+  const feeds: Record<string, ort.Tensor> = activeVersion === "v1"
+    ? { features: tensor }
+    : { poses: tensor };
 
   const results = await session.run(feeds);
   const logits  = results["logits"].data as Float32Array;
@@ -138,13 +163,29 @@ async function runInference(): Promise<InferenceResult | null> {
 
 // ── Process one feature frame ─────────────────────────────────────
 async function processFeatures(data: ArrayBuffer) {
-  const fv = new Float32Array(data);
-  if (fv.length !== 46) return;
+  const fv      = new Float32Array(data);
+  const isV1    = fv.length === 46;
+  const isV2    = fv.length === 153;
+  if (!isV1 && !isV2) return;
+  // Ignore frames from the wrong model version
+  if (isV1 && activeVersion !== "v1") return;
+  if (isV2 && activeVersion !== "v2") return;
 
-  // Movement norm: u^M sub-vector is fv[28:46]
   let movNorm = 0;
-  for (let i = 28; i < 46; i++) movNorm += fv[i] * fv[i];
-  movNorm = Math.sqrt(movNorm);
+  if (isV1) {
+    // v1: u_M sub-vector is fv[28:46]
+    for (let i = 28; i < 46; i++) movNorm += fv[i] * fv[i];
+    movNorm = Math.sqrt(movNorm);
+  } else {
+    // v2: frame-to-frame delta across both hands (dims 0-125)
+    if (prevFrame) {
+      for (let i = 0; i < 126; i++) { const d = fv[i] - prevFrame[i]; movNorm += d * d; }
+      movNorm = Math.sqrt(movNorm / 126);
+    } else {
+      movNorm = 1.0;
+    }
+    prevFrame = fv;
+  }
 
   if (movNorm < REST_NORM_THRESHOLD) {
     restCounter++;
@@ -201,6 +242,7 @@ function resetBuffers() {
   restCounter  = 0;
   liveFrameCtr = 0;
   lastReportedFrameCount = 0;
+  prevFrame = null;
   self.postMessage({ type: "frames", count: 0 } satisfies InferenceWorkerOut);
 }
 
@@ -255,6 +297,12 @@ async function processFsFeatures(data: ArrayBuffer) {
   self.postMessage({ type: "letter", data: { letter, confidence } } satisfies InferenceWorkerOut);
 }
 
+// ── Switch sign model version ─────────────────────────────────────
+function setSignModel(version: "v1" | "v2") {
+  activeVersion = version;
+  resetBuffers();
+}
+
 // ── Switch model mode ─────────────────────────────────────────────
 function setMode(mode: ModelMode) {
   fsMode = mode === "fingerspelling";
@@ -269,10 +317,12 @@ function setMode(mode: ModelMode) {
 // ── Message handler ───────────────────────────────────────────────
 self.onmessage = async (e: MessageEvent<InferenceWorkerIn>) => {
   const msg = e.data;
-  if (msg.type === "init")        await init(msg.modelBuffer, msg.origin);
-  if (msg.type === "init_fs")     await initFs(msg.modelBuffer, msg.origin);
-  if (msg.type === "features")    await processFeatures(msg.data);
-  if (msg.type === "features_fs") await processFsFeatures(msg.data);
-  if (msg.type === "set_mode")    setMode(msg.mode);
-  if (msg.type === "reset")       resetBuffers();
+  if (msg.type === "init")           await init(msg.modelBuffer, msg.origin);
+  if (msg.type === "init_v2")        await initV2(msg.modelBuffer, msg.origin);
+  if (msg.type === "init_fs")        await initFs(msg.modelBuffer, msg.origin);
+  if (msg.type === "features")       await processFeatures(msg.data);
+  if (msg.type === "features_fs")    await processFsFeatures(msg.data);
+  if (msg.type === "set_mode")       setMode(msg.mode);
+  if (msg.type === "set_sign_model") setSignModel(msg.version);
+  if (msg.type === "reset")          resetBuffers();
 };
