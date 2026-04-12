@@ -119,9 +119,11 @@ export function AbstractSection() {
               top-1 accuracy across 2,279 signs. Access to larger datasets — ASL Citizen,
               35,000 clips across 2,279 glosses — changed the equation. The same
               Transformer architecture trained on raw 153-dimensional landmarks, with no
-              engineered features, reaches 80.8% top-1, a 6.8 percentage-point gain.
-              The HLOM compression was lossy; with enough data the model finds the
-              structure itself.
+              engineered features, reaches 80.8% top-1 and 95.4% top-5, a 6.8
+              percentage-point top-1 gain. At 95.4% top-5 the correct sign appears in the
+              model's top five predictions nearly every time — the remaining gap is
+              disambiguation, not recognition. The HLOM compression was lossy; with enough
+              data the model finds the structure itself.
             </p>
 
             <p style={{
@@ -185,7 +187,8 @@ export function AbstractSection() {
               {[
                 "Sim(3)-invariant phonological feature extraction from MediaPipe landmarks",
                 "Product VQ with 5 independent codebooks (H/L/O/M/N) — 67M representable phoneme combinations",
-                "Raw keypoints outperform hand-engineered HLOM by 6.8pp at scale: 80.8% vs 74.0% top-1, 2,279 signs",
+                "Raw keypoints outperform hand-engineered HLOM by 6.8pp at scale: 80.8% top-1, 95.4% top-5, 2,279 signs",
+                "95.4% top-5: the correct sign appears in the top-5 predictions nearly every time — gap is disambiguation, not recognition",
                 "Phonological probing: embeddings spontaneously encode H/L/O/M at 3.5–8.3× above chance with no supervision",
                 "Real-time ONNX inference in WebAssembly SIMD — both 50-sign and 2,279-sign models in-browser",
                 "Spatial discourse algebra on S² for locus assignment",
@@ -293,7 +296,7 @@ export function AbstractSection() {
           color: "var(--ink5)",
           letterSpacing: "0.04em",
         }}>
-          80.8% top-1 · 2,279 signs · Sim(3)-invariant · browser-native
+          80.8% top-1 · 95.4% top-5 · 2,279 signs · Sim(3)-invariant · browser-native
         </span>
       </motion.div>
     </section>

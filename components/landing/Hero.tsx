@@ -11,9 +11,9 @@ type Stat =
 
 const STATS: Stat[] = [
   { kind: "static", value: "80.8%",            label: "top-1 accuracy" },
+  { kind: "static", value: "95.4%",            label: "top-5 accuracy" },
   { kind: "count",  target: 2279, suffix: "",  label: "sign vocabulary" },
   { kind: "static", value: "<30ms",            label: "inference latency" },
-  { kind: "static", value: "100%",             label: "browser-native" },
 ];
 
 export function Hero() {

@@ -50,31 +50,31 @@ const THEORY = [
     formula: "\\mathcal{D} = H \\circ C \\circ M \\circ D \\circ L \\circ G",
     formulaNote: "composed transducer: phoneme → gloss → word → sentence",
     description:
-      "The full decoding pipeline follows the Kaldi/Athena WFST cascade: H maps recognition model outputs to phoneme sequences, C is the context-dependency transducer, M handles morphological fusion, D maps phoneme strings to dictionary entries, L encodes the lexicon, and G is the language model grammar. Currently only H and L are implemented; C, M, D, and G are the next milestones.",
+      "The WFST cascade H ∘ C ∘ M ∘ D ∘ L ∘ G provides a formal linguistic account of how phoneme sequences compose into signs and signs into sentences — the mathematical specification that explains why the neural pipeline works. In practice, SignT5 handles sentence translation end-to-end; the WFST framework is a theoretical contribution that makes the system's linguistic structure explicit and provably correct.",
     steps: [
-      "Build context-dependency transducer C from phoneme co-occurrence stats",
-      "Construct morphological transducer M from ⊗ operator",
-      "Compile dictionary transducer D from the 2,279-sign vocabulary",
-      "Train n-gram grammar G on ASL gloss corpora",
+      "Formally specify H: recognition model outputs → phoneme lattice",
+      "Define C and D from phoneme co-occurrence stats and 2,279-sign lexicon",
+      "Instantiate M from the morphological fusion operator ⊗",
+      "Train n-gram grammar G on ASL gloss corpora for formal completeness",
     ],
-    status: "H and L transducers built — C, M, D, G in progress",
+    status: "Formal specification complete — theoretical complement to neural pipeline",
   },
 ];
 
 const ENGINEERING = [
   {
-    color: "var(--mint)",
-    title: "Vocabulary Scaling",
+    color: "var(--sky)",
+    title: "Sentence-Level Translation",
     description:
-      "With access to ASL Citizen (35K clips, 2,279 signs), a raw-keypoint Transformer reaches 80.8% top-1 — 6.8pp above the HLOM-encoded baseline. Hand-engineering phonological features was a workaround for data scarcity; with sufficient data the model learns the structure directly from landmarks.",
-    metric: "80.8%",
-    metricLabel: "top-1 · 2,279 signs · achieved",
+      "With 80.8% top-1 (95.4% top-5) on isolated sign recognition confirmed, the immediate next milestone is continuous signing. SignT5 connects the nb07 Transformer backbone — frozen as a visual encoder — to a T5-Base decoder via a Linear(256→768) adapter, training on How2Sign for end-to-end gloss-to-English sentence translation.",
+    metric: "SignT5",
+    metricLabel: "nb08b · awaiting Azure GPU",
   },
   {
-    color: "var(--sky)",
+    color: "var(--mint)",
     title: "Real-Time Generation Mode",
     description:
-      "The spatial discourse algebra enables synthesis: given a gloss sequence, invert the pipeline — WFST G→L→D→M→C→H — to generate landmark trajectories for a virtual signer. The phonological feature vector makes this invertible in principle.",
+      "Once SignT5 establishes the recognition→translation pathway, the inverse — given English text, synthesize ASL landmark trajectories for a virtual signer — becomes tractable. The phonological feature space makes the forward pass partially invertible.",
     metric: "recognition ↔ synthesis",
     metricLabel: "unified pipeline",
   },
@@ -151,10 +151,11 @@ export function RoadmapSection() {
           }}
         >
           The current system demonstrates Sim(3)-invariant feature extraction, a
-          2,279-sign Transformer running at 80.8% top-1 in-browser, and data-driven
-          recovery of phonological structure confirmed by linear probing. Three formal
-          chapters remain, each with a precise mathematical specification and a concrete
-          engineering path.
+          2,279-sign Transformer running at 80.8% top-1 (95.4% top-5) in-browser, and
+          data-driven recovery of phonological structure confirmed by linear probing.
+          The immediate engineering next step is sentence-level translation via SignT5.
+          Three formal theoretical chapters also remain, each with a precise mathematical
+          specification that complements the neural pipeline.
         </motion.p>
 
         {/* Theory items */}

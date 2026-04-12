@@ -39,7 +39,7 @@ const ANSWERS = [
     prefix: "",
     suffix: "%",
     label: "top-1 accuracy",
-    sub: "raw Transformer · 2,279 signs",
+    sub: "95.4% top-5 · raw Transformer · 2,279 signs",
     color: "var(--mint)",
   },
   {
