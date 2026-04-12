@@ -5,6 +5,7 @@ import { PhonologyCards } from "@/components/landing/PhonologyCards";
 import { TaxonomySection } from "@/components/landing/TaxonomySection";
 import { DifferentiationSection } from "@/components/landing/DifferentiationSection";
 import { MathSection } from "@/components/landing/MathSection";
+import { EmbeddingSection } from "@/components/landing/EmbeddingSection";
 import { RoadmapSection } from "@/components/landing/RoadmapSection";
 import { AbstractSection } from "@/components/landing/AbstractSection";
 
@@ -18,6 +19,7 @@ export default function LandingPage() {
       <TaxonomySection />
       <DifferentiationSection />
       <MathSection />
+      <EmbeddingSection />
       <RoadmapSection />
       <AbstractSection />
     </div>
