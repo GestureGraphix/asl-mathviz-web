@@ -112,13 +112,33 @@ export function AbstractSection() {
               color: "var(--ink2)",
               margin: 0,
             }}>
-              A Product Vector Quantizer assigns each parameter to an independent
-              codebook, achieving exponentially lower sample complexity than joint
-              quantization. A two-layer BiLSTM with attention pooling processes the
-              resulting 51-dimensional feature sequences, exported to ONNX for real-time
-              browser inference via WebAssembly SIMD. The full pipeline runs in two Web
-              Workers — MediaPipe in one, ONNX Runtime in another — keeping the main
-              thread free for rendering.
+              With limited training data, hand-engineering these phonological features
+              was necessary: a 51-dimensional HLOM feature vector gave the model the
+              mathematical structure it could not learn on its own from sparse video.
+              A Transformer trained on this compressed representation reached 74.0%
+              top-1 accuracy across 2,279 signs. Access to larger datasets — ASL Citizen,
+              35,000 clips across 2,279 glosses — changed the equation. The same
+              Transformer architecture trained on raw 153-dimensional landmarks, with no
+              engineered features, reaches 80.8% top-1, a 6.8 percentage-point gain.
+              The HLOM compression was lossy; with enough data the model finds the
+              structure itself.
+            </p>
+
+            <p style={{
+              fontFamily: "var(--font-ui, Figtree, sans-serif)",
+              fontSize: 14,
+              lineHeight: 1.8,
+              color: "var(--ink2)",
+              margin: 0,
+            }}>
+              Phonological probing confirms what we suspected. The 80.8% model — trained
+              only to name signs — spontaneously organized its 256-dimensional embedding
+              space by the same H/L/O/M parameters we had previously hand-encoded.
+              Linear classifiers trained on geometry-derived phonological labels, with no
+              phonological supervision during training, achieve 3.5–8.3× above-chance
+              accuracy across all four components. The mathematical structure of ASL
+              phonology is real and recoverable from video; it just requires enough data
+              to emerge on its own.
             </p>
 
             <p style={{
@@ -132,8 +152,9 @@ export function AbstractSection() {
               a non-associative morphological fusion operator ⊗ on the phoneme alphabet
               Σ = Σ_H × Σ_L × Σ_O × Σ_M × Σ_N, and a WFST decoding cascade
               H ∘ C ∘ M ∘ D ∘ L ∘ G for structured recognition. This is the first
-              system to demonstrate provable Sim(3)-invariance, compositional vocabulary
-              scaling, and real-time browser execution in a single unified framework.
+              system to demonstrate provable Sim(3)-invariance, data-driven recovery of
+              phonological structure, and real-time browser execution across a 2,279-sign
+              vocabulary in a single unified framework.
             </p>
           </motion.div>
 
@@ -163,8 +184,10 @@ export function AbstractSection() {
               }}>Key Contributions</span>
               {[
                 "Sim(3)-invariant phonological feature extraction from MediaPipe landmarks",
-                "Product VQ with 5 independent codebooks (H/L/O/M/N)",
-                "Real-time BiLSTM ONNX inference in WebAssembly SIMD",
+                "Product VQ with 5 independent codebooks (H/L/O/M/N) — 67M representable phoneme combinations",
+                "Raw keypoints outperform hand-engineered HLOM by 6.8pp at scale: 80.8% vs 74.0% top-1, 2,279 signs",
+                "Phonological probing: embeddings spontaneously encode H/L/O/M at 3.5–8.3× above chance with no supervision",
+                "Real-time ONNX inference in WebAssembly SIMD — both 50-sign and 2,279-sign models in-browser",
                 "Spatial discourse algebra on S² for locus assignment",
                 "Non-associative morphological fusion operator ⊗",
                 "WFST cascade H ∘ C ∘ M ∘ D ∘ L ∘ G",

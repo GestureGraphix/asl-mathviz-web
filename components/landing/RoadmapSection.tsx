@@ -66,9 +66,9 @@ const ENGINEERING = [
     color: "var(--mint)",
     title: "Vocabulary Scaling",
     description:
-      "The compositional structure of Product VQ means vocabulary scales exponentially — 5 codebooks of size 64/32/16/64/32 yield 67M representable phoneme combinations. Reaching 1000+ signs requires only extending training data, not architectural changes.",
-    metric: "50 → 1,000+",
-    metricLabel: "sign vocabulary",
+      "With access to ASL Citizen (35K clips, 2,279 signs), a raw-keypoint Transformer reaches 80.8% top-1 — 6.8pp above the HLOM-encoded baseline. Hand-engineering phonological features was a workaround for data scarcity; with sufficient data the model learns the structure directly from landmarks.",
+    metric: "80.8%",
+    metricLabel: "top-1 · 2,279 signs · achieved",
   },
   {
     color: "var(--sky)",
