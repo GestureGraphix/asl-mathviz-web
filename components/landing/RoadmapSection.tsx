@@ -19,7 +19,7 @@ const THEORY = [
       "Define ⊗ axiomatically on the phoneme alphabet Σ",
       "Learn fusion weights from minimal pair data",
       "Extend VQ codebooks to cover morphological variants",
-      "Add fusion layer between BiLSTM and WFST",
+      "Add fusion layer between recognition model and WFST",
     ],
     status: "Theoretical foundation complete — implementation pending",
   },
@@ -50,11 +50,11 @@ const THEORY = [
     formula: "\\mathcal{D} = H \\circ C \\circ M \\circ D \\circ L \\circ G",
     formulaNote: "composed transducer: phoneme → gloss → word → sentence",
     description:
-      "The full decoding pipeline follows the Kaldi/Athena WFST cascade: H maps BiLSTM outputs to phoneme sequences, C is the context-dependency transducer, M handles morphological fusion, D maps phoneme strings to dictionary entries, L encodes the lexicon, and G is the language model grammar. Currently only H and L are implemented; C, M, D, and G are the next milestones.",
+      "The full decoding pipeline follows the Kaldi/Athena WFST cascade: H maps recognition model outputs to phoneme sequences, C is the context-dependency transducer, M handles morphological fusion, D maps phoneme strings to dictionary entries, L encodes the lexicon, and G is the language model grammar. Currently only H and L are implemented; C, M, D, and G are the next milestones.",
     steps: [
       "Build context-dependency transducer C from phoneme co-occurrence stats",
       "Construct morphological transducer M from ⊗ operator",
-      "Compile dictionary transducer D from the 50-sign lexicon",
+      "Compile dictionary transducer D from the 2,279-sign vocabulary",
       "Train n-gram grammar G on ASL gloss corpora",
     ],
     status: "H and L transducers built — C, M, D, G in progress",
@@ -150,9 +150,10 @@ export function RoadmapSection() {
             marginBottom: 56,
           }}
         >
-          The current system implements the geometric core — invariant feature extraction,
-          product quantization, and BiLSTM inference. Three open chapters remain in the
-          formal framework, each with a precise mathematical specification and a concrete
+          The current system demonstrates Sim(3)-invariant feature extraction, a
+          2,279-sign Transformer running at 80.8% top-1 in-browser, and data-driven
+          recovery of phonological structure confirmed by linear probing. Three formal
+          chapters remain, each with a precise mathematical specification and a concrete
           engineering path.
         </motion.p>
 

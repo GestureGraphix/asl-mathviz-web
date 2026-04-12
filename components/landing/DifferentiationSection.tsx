@@ -35,11 +35,11 @@ const ANSWERS = [
     color: "var(--teal)",
   },
   {
-    target: 51,
+    target: 81,
     prefix: "",
-    suffix: "D",
-    label: "phonological feature dims",
-    sub: "H(16) · L(6) · O(6) · M(18) · N(5)",
+    suffix: "%",
+    label: "top-1 accuracy",
+    sub: "raw Transformer · 2,279 signs",
     color: "var(--mint)",
   },
   {

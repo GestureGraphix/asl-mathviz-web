@@ -10,8 +10,8 @@ type Stat =
   | { kind: "count"; target: number; prefix?: string; suffix?: string; label: string };
 
 const STATS: Stat[] = [
-  { kind: "count",  target: 51,  suffix: "D", label: "phonological dims" },
-  { kind: "count",  target: 50,  suffix: "",  label: "sign vocabulary" },
+  { kind: "static", value: "80.8%",            label: "top-1 accuracy" },
+  { kind: "count",  target: 2279, suffix: "",  label: "sign vocabulary" },
   { kind: "static", value: "<30ms",            label: "inference latency" },
   { kind: "static", value: "100%",             label: "browser-native" },
 ];

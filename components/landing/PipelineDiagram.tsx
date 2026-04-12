@@ -31,16 +31,16 @@ const NODES = [
   {
     id: "features",
     title: "Feature Extractor",
-    subtitle: "f_t ∈ ℝ⁵¹",
-    detail: "H · L · O · M · N",
+    subtitle: "153D raw / 51D HLOM",
+    detail: "v2: raw landmarks · v1: H·L·O·M·N",
     color: "var(--mint)",
     icon: "⊕",
   },
   {
     id: "bilstm",
-    title: "BiLSTM ONNX",
-    subtitle: "50 classes",
-    detail: "2-layer · 512D · attn pool",
+    title: "ONNX Inference",
+    subtitle: "2,279 signs (v2) · 50 (v1)",
+    detail: "Transformer · BiLSTM · WASM SIMD",
     color: "var(--lav)",
     icon: "⟳",
   },
@@ -253,7 +253,7 @@ export function PipelineDiagram() {
         >
           {[
             { label: "Worker 1", note: "MediaPipe Holistic · landmark extraction · ~15ms/frame", color: "var(--teal)" },
-            { label: "Worker 2", note: "ONNX Runtime WASM SIMD · BiLSTM inference · ~8ms/clip", color: "var(--lav)" },
+            { label: "Worker 2", note: "ONNX Runtime WASM SIMD · Transformer (v2) · BiLSTM (v1) · ~8ms/clip", color: "var(--lav)" },
             { label: "Main thread", note: "React rendering · Three.js scene · transcript · UI only", color: "var(--ink4)" },
           ].map(({ label, note, color }) => (
             <div key={label} style={{

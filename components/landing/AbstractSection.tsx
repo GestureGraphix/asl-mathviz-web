@@ -293,7 +293,7 @@ export function AbstractSection() {
           color: "var(--ink5)",
           letterSpacing: "0.04em",
         }}>
-          f_t ∈ ℝ⁵¹ · Sim(3)-invariant · browser-native
+          80.8% top-1 · 2,279 signs · Sim(3)-invariant · browser-native
         </span>
       </motion.div>
     </section>

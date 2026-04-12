@@ -36,7 +36,7 @@ const TIERS = [
     dataWidth: "22%",
     vocab: "Exponential (compositional)",
     invariance: true,
-    approach: "5-parameter feature vector · Product VQ · BiLSTM · ONNX",
+    approach: "raw Transformer 80.8% (v2) · HLOM + Product VQ + BiLSTM (v1) · ONNX · browser-native",
     systems: "ASL MathViz (this work)",
     thisWork: true,
   },
