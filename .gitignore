@@ -59,6 +59,18 @@ yarn-error.log*
 *.pid
 *.seed
 
+# ── New Additions (local research docs, not for the repo) ────────
+New Additions/
+
+# ── LaTeX build artifacts ─────────────────────────────────────────
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
 # ── Notes ────────────────────────────────────────────────────────
 # public/models/, public/wasm/, public/ort-wasm* are intentionally
 # committed — Vercel serves them as static assets from /public.

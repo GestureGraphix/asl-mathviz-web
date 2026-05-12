@@ -31,40 +31,120 @@ interface Section {
 
 const SECTIONS: Section[] = [
   {
-    ref: "§3",
-    title: "Phonological Alphabet & Feature Extraction",
+    ref: "§1",
+    title: "Extended Bimanual Phonological Alphabet",
     status: "live",
     accent: "var(--mint)",
     summary:
-      "Signs factorized into five simultaneous phonological parameters extracted frame-by-frame from MediaPipe landmarks with Sim(3)-invariance.",
+      "Signs described as 9-tuples in Σ_B — extending the basic HLOM alphabet to capture dominant/non-dominant handshapes, contact, handshape change, path geometry, and movement manner. The Battison Dominance Constraint reduces the attested bimanual space by 4×.",
     formulas: [
       {
-        label: "Sim(3) normalization",
-        tex: String.raw`\tilde{X}_t = \frac{(X_t - T_t)\,R_t^\top}{s_t}`,
-        note: "sₜ = bi-shoulder width, Tₜ = shoulder midpoint, Rₜ = yaw rotation",
+        label: "Basic phonological alphabet",
+        tex: String.raw`s = (H,\, L,\, O,\, M,\, N) \;\in\; \Sigma_H \times \Sigma_L \times \Sigma_O \times \Sigma_M \times \Sigma_N =: \Sigma`,
+        note: "|Σ_H| ≈ 35, |Σ_L| ≈ 22, |Σ_O| ≈ 14, |Σ_M| ≈ 25, |Σ_N| ≈ 18",
         block: true,
       },
       {
+        label: "Extended bimanual alphabet \\(\\Sigma_B\\)",
+        tex: String.raw`B = \bigl(H^d,\; H^n,\; \kappa,\; \Delta_H,\; L,\; O,\; M_{\mathrm{path}},\; M_{\mathrm{manner}},\; N\bigr) \;\in\; \Sigma_B`,
+        note: "H^d dominant / H^n non-dominant handshape, κ contact flag, Δ_H change record, M_path ∈ {str, arc, circ, rep}, M_manner ∈ {smo, tri, hld}",
+        block: true,
+      },
+      {
+        label: "Battison Dominance Constraint",
+        tex: String.raw`H^n \in \Sigma_0 = \{\mathrm{B},\,\mathrm{A},\,\mathrm{S},\,\mathrm{C},\,\mathrm{O},\,5,\,\mathrm{G},\ldots\},\quad |\Sigma_0| = 8`,
+        note: "In any attested asymmetric bimanual sign (H^d ≠ H^n), the non-dominant hand uses only an unmarked base handshape",
+        block: true,
+      },
+      {
+        label: "Attested bimanual space reduction",
+        tex: String.raw`|\Sigma_H|(1 + |\Sigma_0|) = 35 \times 9 = 315 \;\ll\; |\Sigma_H|^2 = 1225`,
+        note: "Constraint reduces the sign space by 4×, enabling efficient grading without ML",
+        block: true,
+      },
+    ],
+  },
+
+  {
+    ref: "§2",
+    title: "Mobile Sim(3) Normalization",
+    status: "live",
+    accent: "var(--sky)",
+    summary:
+      "Two-stage normalization for mobile capture: IMU pre-rotation removes camera pitch/roll using the phone accelerometer's gravity vector; then anchor-frame normalization is case-split on sign type — shoulder-anchored for two-handed, face-anchored for one-handed.",
+    formulas: [
+      {
+        label: "IMU pre-rotation  \\(R_t^{\\mathrm{imu}}\\)",
+        tex: String.raw`R_t^{\mathrm{imu}} = I + [\mathbf{v}]_\times + [\mathbf{v}]_\times^2 \cdot \frac{1}{1+c}, \qquad \mathbf{v} = \mathbf{g}_t^{\mathrm{dev}} \times \hat{y},\quad c = \mathbf{g}_t^{\mathrm{dev}} \cdot \hat{y}`,
+        note: "g^dev = unit gravity vector from phone accelerometer; ŷ = world down-axis; removes camera tilt at zero compute cost",
+        block: true,
+      },
+      {
+        label: "Gravity-corrected landmarks",
+        tex: String.raw`X_t^{\mathrm{gc}} = X_t\,(R_t^{\mathrm{imu}})^\top`,
+        block: true,
+      },
+      {
+        label: "Two-handed Sim(3)  (phone propped, \\(H^n \\neq \\emptyset\\))",
+        tex: String.raw`\tilde{X}_t = \frac{\bigl(X_t^{\mathrm{gc}} - T_t^{\mathrm{bi}}\bigr)(R_t^{\mathrm{bi}})^\top}{s_t^{\mathrm{bi}}}, \quad s_t^{\mathrm{bi}} = \|B_t[\mathrm{RS}] - B_t[\mathrm{LS}]\|_2`,
+        note: "T^bi = shoulder midpoint, R^bi = yaw correction aligning shoulder axis with x̂",
+        block: true,
+      },
+      {
+        label: "One-handed Sim(3)  (phone held, \\(H^n = \\emptyset\\))",
+        tex: String.raw`\tilde{X}_t = \frac{\bigl(X_t^{\mathrm{gc}} - F_t[1]\bigr)(R_t^{\mathrm{face}})^\top}{\|F_t[33] - F_t[263]\|_2}`,
+        note: "Anchor: nose tip F[1], scale: inter-ocular distance F[33]–F[263]. Reliable in selfie mode even without body landmarks",
+        block: true,
+      },
+      {
+        label: "Full mobile Sim(3) pipeline",
+        tex: String.raw`\tilde{X}_t = \begin{cases} \mathrm{Sim3}_{\mathrm{bi}}\!\left(X_t (R_t^{\mathrm{imu}})^\top\right) & H^n \neq \emptyset \\ \mathrm{Sim3}_{\mathrm{face}}\!\left(X_t (R_t^{\mathrm{imu}})^\top\right) & H^n = \emptyset \end{cases}`,
+        block: true,
+      },
+      {
+        label: "Phone-tilt augmentation",
+        tex: String.raw`\theta_{\mathrm{pitch}} \sim \mathcal{U}(-30^\circ, +30^\circ),\quad \theta_{\mathrm{roll}} \sim \mathcal{U}(-15^\circ, +15^\circ),\quad s_{\mathrm{aug}} \sim \mathcal{U}(0.7, 1.4)`,
+        note: "Applied before normalization during training to cover real phone-hold variation",
+        block: true,
+      },
+    ],
+  },
+
+  {
+    ref: "§3",
+    title: "Feature Extraction from Normalized Landmarks",
+    status: "live",
+    accent: "var(--mint)",
+    summary:
+      "Five phonological sub-vectors extracted per frame from Sim(3)-normalized landmarks, concatenated into f_t ∈ ℝ⁵¹. Product VQ quantizes each sub-vector independently for exponentially more efficient codebook learning.",
+    formulas: [
+      {
         label: "Handshape  \\(\\mathbf{u}^H_t \\in \\mathbb{R}^{16}\\)",
         tex: String.raw`\theta_{k,t} = \angle\!\bigl(\tilde{L}_t[4k{+}1] - \tilde{L}_t[0],\;\tilde{L}_t[4k{+}4] - \tilde{L}_t[4k{+}1]\bigr)`,
-        note: "5 flexion + 3 spread angles per hand → 16-D",
+        note: "4 finger flexion angles × 2 hands + thumb + inter-finger abduction = 16-D",
+        block: true,
+      },
+      {
+        label: "Handshape recognition check",
+        tex: String.raw`\hat{H}^d = \operatorname*{arg\,min}_{h \in \Sigma_H} \|\mathbf{u}_t^H - \mu_h\|_2, \qquad C_{H^d} = \mathbf{1}\!\left[\|\mathbf{u}_t^H - \mu_{h^*}\|_2 \leq \varepsilon_H\right]`,
+        note: "εH = 0.30 (L2 in ℝ¹⁶, normalized). Nearest-prototype — no ML required",
         block: true,
       },
       {
         label: "Location  \\(\\mathbf{u}^L_t \\in \\mathbb{R}^{6}\\)",
-        tex: String.raw`c^{L/R}_t = \tfrac{1}{5}\sum_{j \in \{0,5,9,13,17\}} \tilde{L/R}_t[j] \in \mathbb{R}^3`,
+        tex: String.raw`c_t^{L/R} = \tfrac{1}{5}\sum_{j \in \{0,5,9,13,17\}} \tilde{L/R}_t[j] \;\in\; \mathbb{R}^3`,
         block: true,
       },
       {
         label: "Orientation  \\(\\mathbf{u}^O_t \\in \\mathbb{R}^{6}\\)",
-        tex: String.raw`n^{L/R}_t = \frac{(\tilde{L}_t[5]-\tilde{L}_t[0]) \times (\tilde{L}_t[17]-\tilde{L}_t[0])}{\|\cdot\|_2}`,
+        tex: String.raw`n_t^{L/R} = \frac{(\tilde{L/R}_t[5]-\tilde{L/R}_t[0]) \times (\tilde{L/R}_t[17]-\tilde{L/R}_t[0])}{\|\cdots\|_2} \;\in\; \mathbb{S}^2`,
         note: "Unit palm normal via cross product",
         block: true,
       },
       {
         label: "Movement  \\(\\mathbf{u}^M_t \\in \\mathbb{R}^{18}\\)",
         tex: String.raw`\Delta c_t = c_t - c_{t-1},\quad \Delta^2 c_t = \Delta c_t - \Delta c_{t-1},\quad \Delta n_t = n_t - n_{t-1}`,
-        note: "Velocity, acceleration, orientation velocity per hand",
+        note: "Velocity, acceleration, orientation velocity — per hand (6 each)",
         block: true,
       },
       {
@@ -81,7 +161,7 @@ const SECTIONS: Section[] = [
       {
         label: "Product VQ sample complexity",
         tex: String.raw`\mathbb{E}[\mathrm{dist}(q_n)] - \mathrm{dist}(q^\star) = \tilde{\mathcal{O}}\!\left(\sum_j \sqrt{\frac{d_j \log k_j}{n}}\right) \;\ll\; \tilde{\mathcal{O}}\!\left(\sqrt{\frac{d \log K}{n}}\right)`,
-        note: "Product VQ achieves equivalent quality with exponentially less data",
+        note: "Product VQ achieves equivalent quality with exponentially less data than joint quantization",
         block: true,
       },
     ],
@@ -89,6 +169,59 @@ const SECTIONS: Section[] = [
 
   {
     ref: "§4",
+    title: "Sign Grading: Contact, Change Record & Boolean Checks",
+    status: "partial",
+    accent: "var(--coral)",
+    summary:
+      "Grading fires once at sign completion (final Hold phase). Each Σ_B component is a deterministic boolean check on Sim(3)-normalized landmarks — no ML required. The Hamming distance over 8 checks yields phonological error feedback at sub-millisecond cost.",
+    formulas: [
+      {
+        label: "Contact flag \\(\\kappa\\)",
+        tex: String.raw`\kappa_t = \mathbf{1}\!\left[\|c_t^d - c_t^n\|_2 \leq 0.15\right], \qquad \kappa = \left\lceil \frac{1}{T}\sum_{t=1}^{T} \kappa_t \;\geq\; 0.3 \right\rceil`,
+        note: "δ_contact = 0.15 sw calibrated above MediaPipe noise (σ ≈ 0.02 sw). Vote threshold θ_κ = 0.3",
+        block: true,
+      },
+      {
+        label: "Handshape change record \\(\\Delta_H\\)",
+        tex: String.raw`\Delta_H = \mathrm{RLE}(q^H) = \bigl(h_1^{\times r_1},\; h_2^{\times r_2},\; \ldots,\; h_k^{\times r_k}\bigr), \quad h_i \in \Sigma_H`,
+        note: "|Δ_H| = 1 constant, 2 single change (BECOME), ≥ 3 complex trajectory (DREAM)",
+        block: true,
+      },
+      {
+        label: "Movement-Hold segmentation",
+        tex: String.raw`\mathrm{Hold}(t) = \bigl\{t : \|c_t^d - c_{t-1}^d\|_2 < \varepsilon_{\mathrm{hold}}\bigr\}, \qquad \varepsilon_{\mathrm{hold}} = 0.01 \text{ sw/frame}`,
+        note: "≈ 0.3 cm/frame at 30 fps. MH-string e.g. H·M·H (single), H·M·H·M·H (repeated, AGAIN)",
+        block: true,
+      },
+      {
+        label: "Path shape \\(M_{\\mathrm{path}}\\)  — straight criterion",
+        tex: String.raw`M_{\mathrm{path}} = \mathrm{str} \iff \max_{u \in [0,1]} d\!\bigl(\gamma(u),\,\overline{\gamma(0)\gamma(1)}\bigr) \;\leq\; \theta_{\mathrm{str}},\quad \theta_{\mathrm{str}} = 0.05 \text{ sw}`,
+        note: "Arc: best-fit circle residual ≤ θ_arc, |φ| ≤ 270°. Circular: |φ| > 270°. Repeated: ≥ 2 Movement segments",
+        block: true,
+      },
+      {
+        label: "Sign grading function",
+        tex: String.raw`\mathrm{correct}(B^*) = C_{H^d} \wedge C_{H^n} \wedge C_\kappa \wedge C_{\Delta_H} \wedge C_L \wedge C_O \wedge C_{M_{\mathrm{path}}} \wedge C_{M_{\mathrm{manner}}}`,
+        note: "Each Cᴊ is a deterministic boolean predicate on Sim(3)-normalized landmarks. No ML.",
+        block: true,
+      },
+      {
+        label: "Phonological Hamming distance",
+        tex: String.raw`d_{\mathrm{phon}}(s, s') = \#\bigl\{J : \hat{J}(s) \neq J^*(s')\bigr\} \;\in\; \{0, 1, 2, \ldots, 8\}`,
+        note: "Enables feedback: \"Handshape correct. Location needs to be at chin, not forehead.\"",
+        block: true,
+      },
+      {
+        label: "Grading latency  (all 8 checks)",
+        tex: String.raw`t_{\mathrm{grade}} = \frac{\approx 300\text{ FLOPs}}{10^9\text{ FLOP/s}} \approx 3 \times 10^{-4}\,\text{ms}; \qquad t_{\mathrm{total}} \approx \begin{cases} 38\,\text{ms} & \text{one-handed} \\ 73\,\text{ms} & \text{two-handed} \end{cases}`,
+        note: "Dominant cost is MediaPipe (~20–55 ms mid-range). All phonological math < 1 ms. Budget: 300 ms target.",
+        block: true,
+      },
+    ],
+  },
+
+  {
+    ref: "§5",
     title: "BiLSTM Encoder + VQ-VAE Extension",
     status: "partial",
     accent: "var(--sky)",
@@ -117,7 +250,7 @@ const SECTIONS: Section[] = [
   },
 
   {
-    ref: "§5",
+    ref: "§6",
     title: "Spatial Discourse Algebra",
     status: "future",
     accent: "var(--lav)",
@@ -160,7 +293,7 @@ const SECTIONS: Section[] = [
   },
 
   {
-    ref: "§6",
+    ref: "§7",
     title: "Non-Associative Morphological Fusion",
     status: "future",
     accent: "var(--coral)",
@@ -211,7 +344,7 @@ const SECTIONS: Section[] = [
   },
 
   {
-    ref: "§7",
+    ref: "§8",
     title: "Temporal Segmentation",
     status: "partial",
     accent: "var(--teal)",
@@ -244,7 +377,7 @@ const SECTIONS: Section[] = [
   },
 
   {
-    ref: "§8",
+    ref: "§9",
     title: "WFST Decoding Cascade",
     status: "future",
     accent: "var(--sage)",
@@ -284,7 +417,7 @@ const SECTIONS: Section[] = [
   },
 
   {
-    ref: "§9",
+    ref: "§10",
     title: "Information-Theoretic Modality Selection",
     status: "future",
     accent: "var(--sky)",
@@ -318,7 +451,7 @@ const SECTIONS: Section[] = [
   },
 
   {
-    ref: "§10",
+    ref: "§11",
     title: "Joint Training & GradNorm Balancing",
     status: "future",
     accent: "var(--coral)",
@@ -546,8 +679,8 @@ export const TheoryPanel = memo(function TheoryPanel() {
         fontStyle: "italic",
         lineHeight: 1.55,
       }}>
-        Hernandez Juarez, A. (2026). <em>Compositional Mathematical Linguistics for ASL: Formal
-        Phonology, Spatial Discourse Algebra, Morphological Fusion, and Scalable Decoding.</em>
+        Hernandez Juarez, A. (2026). <em>Palmar Sign Mathematics Reference: Formal Definitions
+        for Sign Description, Grading, and Comparison.</em> Development Reference v1.0.
       </p>
 
       {RENDERED.map((s) => (

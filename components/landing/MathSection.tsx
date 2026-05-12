@@ -6,6 +6,32 @@ import { KaTeX } from "./KaTeX";
 
 const FORMULAS = [
   {
+    label: "Battison Dominance Constraint",
+    section: "§ 1",
+    formula: "|\\Sigma_H|(1 + |\\Sigma_0|) = 35 \\times 9 = 315 \\;\\ll\\; |\\Sigma_H|^2 = 1225",
+    explanation:
+      "In any attested asymmetric bimanual ASL sign, the non-dominant hand uses only one of 8 unmarked base handshapes — a constraint proved by Battison (1978) from corpus analysis of the full ASL lexicon. This reduces the space of possible handshape pairs by 4×, from 1,225 to 315. The grading pipeline exploits this directly: impossible combinations are eliminated without ML, and the nearest-prototype search runs over a 4× smaller space.",
+    terms: [
+      { sym: "\\Sigma_0 = \\{B,\\, A,\\, S,\\, C,\\, O,\\, 5,\\, G,\\, \\ldots\\}", desc: "8 unmarked base handshapes" },
+      { sym: "|\\Sigma_H| = 35", desc: "total handshape inventory" },
+      { sym: "315", desc: "attested asymmetric bimanual pairs" },
+      { sym: "1225", desc: "naive unconstrained count (\\(35^2\\))" },
+    ],
+  },
+  {
+    label: "IMU Pre-Rotation",
+    section: "§ 2",
+    formula: "R_t^{\\mathrm{imu}} = I + [\\mathbf{v}]_\\times + [\\mathbf{v}]_\\times^2 \\cdot \\tfrac{1}{1+c}, \\quad \\mathbf{v} = \\mathbf{g}_t^{\\mathrm{dev}} \\times \\hat{y}",
+    explanation:
+      "Before any feature is computed, camera pitch and roll are removed using the phone accelerometer's gravity vector. A single axis-angle rotation aligns the device gravity direction with the world down-axis, correcting the dominant source of landmark distortion in mobile capture. The corrected landmarks feed directly into Sim(3) normalization — at zero added latency, since accelerometer data is always available.",
+    terms: [
+      { sym: "\\mathbf{g}_t^{\\mathrm{dev}}", desc: "unit gravity vector from phone accelerometer" },
+      { sym: "\\hat{y} = (0,-1,0)^\\top", desc: "world down-axis" },
+      { sym: "c = \\mathbf{g}_t^{\\mathrm{dev}} \\cdot \\hat{y}", desc: "cosine of camera tilt angle" },
+      { sym: "[\\mathbf{v}]_\\times", desc: "skew-symmetric cross-product matrix of rotation axis" },
+    ],
+  },
+  {
     label: "Sim(3) Normalization",
     section: "§ 3",
     formula: "\\tilde{Y}_t = \\frac{(X_t - T_t)\\, R_t^\\top}{s_t}",
@@ -105,9 +131,9 @@ export function MathSection() {
             marginBottom: 56,
           }}
         >
-          Three equations drive the system. Each one maps to a concrete operation in the
-          browser pipeline, implemented as a NumPy-equivalent computation over MediaPipe
-          landmarks.
+          Five equations drive the system. Each one maps to a concrete operation in the
+          pipeline — from linguistic constraints on the sign space, through mobile camera
+          correction, to the phonological feature vector the model actually sees.
         </motion.p>
 
         {/* Formula cards */}
