@@ -7,6 +7,7 @@ import { FaceExplorer } from "@/components/research/FaceExplorer";
 import { PathShapeViz } from "@/components/research/PathShapeViz";
 import { BattisonGrid } from "@/components/research/BattisonGrid";
 import { GradingPanel } from "@/components/research/GradingPanel";
+import { LiveVerification } from "@/components/research/LiveVerification";
 
 // ── Section wrapper ───────────────────────────────────────────────────────────
 
@@ -60,6 +61,7 @@ const NAV_ITEMS = [
   { label: "Battison Grid", href: "#battison" },
   { label: "Movement", href: "#movement" },
   { label: "Grading", href: "#grading" },
+  { label: "Live Verify", href: "#live" },
 ];
 
 // ── Σ_B parameter definitions ─────────────────────────────────────────────────
@@ -283,6 +285,18 @@ export default function ResearchPage() {
       >
         <GradingPanel />
       </Section>
+
+      {/* §6 — Live verification */}
+      <section id="live" style={{ background: "var(--bg-surface)", borderTop: "1px solid var(--rule)" }}>
+        <Section
+          id="live-inner"
+          mono="§ 6 — Live Verification"
+          title="Math Responding to Your Hands"
+          subtitle="Connect your camera to see the phonological feature vectors update in real time from your actual hands and face. No sign recognition — just the MediaPipe → Sim(3) → feature extraction pipeline. The non-manual face visualization reads your actual brow, mouth, and gaze."
+        >
+          <LiveVerification />
+        </Section>
+      </section>
 
       {/* Footer */}
       <footer style={{
