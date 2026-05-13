@@ -150,7 +150,7 @@ const SECTIONS: Section[] = [
       {
         label: "Non-manual  \\(\\mathbf{u}^N_t \\in \\mathbb{R}^{5}\\)",
         tex: String.raw`g_t = \tfrac{1}{2}(F_t[33]+F_t[133]) - \tfrac{1}{2}(F_t[362]+F_t[263])`,
-        note: "+ mouth aperture ‖F[61]−F[291]‖₂, brow height, head tilt",
+        note: "+ mouth aperture ‖F[61]−F[291]‖₂ (mouthAp ≥ 0), brow height face[65].y − face[159].y (browH ≤ 0)",
         block: true,
       },
       {

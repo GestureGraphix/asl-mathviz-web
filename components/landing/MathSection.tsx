@@ -33,7 +33,7 @@ const FORMULAS = [
   },
   {
     label: "Sim(3) Normalization",
-    section: "§ 3",
+    section: "§ 2",
     formula: "\\tilde{Y}_t = \\frac{(X_t - T_t)\\, R_t^\\top}{s_t}",
     explanation:
       "Every landmark frame is translated to the shoulder midpoint, scaled by shoulder width, and rotated to cancel yaw. The result is invariant to where the signer stands, how far they are from the camera, and which direction they face.",
@@ -46,7 +46,7 @@ const FORMULAS = [
   },
   {
     label: "Product Vector Quantization",
-    section: "§ 7",
+    section: "§ 4",
     formula: "\\hat{u}^J_t = \\underset{c_k \\in \\mathcal{C}^J}{\\arg\\min}\\; \\|u^J_t - c_k\\|_2",
     explanation:
       "Each phonological sub-vector is quantized independently to its own codebook. Five separate codebooks replace one enormous joint codebook — exponentially fewer codes needed, while preserving the compositional structure of ASL phonology.",
@@ -59,7 +59,7 @@ const FORMULAS = [
   },
   {
     label: "Feature Vector",
-    section: "§ 4",
+    section: "§ 5",
     formula: "f_t = [u^H_t;\\; u^L_t;\\; u^O_t;\\; u^M_t;\\; u^N_t] \\;\\in\\; \\mathbb{R}^{51}",
     explanation:
       "The 51-dimensional phonological fingerprint of a single frame. Each component is geometrically grounded — angles, unit vectors, and finite differences — so the vector carries interpretable structure that end-to-end models discard.",

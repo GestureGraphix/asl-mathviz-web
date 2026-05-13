@@ -41,12 +41,14 @@ export function FaceExplorer() {
   const mouthW = 28;
   const mouthX = cx, mouthY = 126;
 
+  // u^N layout: [gaze_x, gaze_y, gaze_z, mouthAp, browH]
+  // Scale slider values to the real pipeline ranges (UN_MAX constants)
   const uN = [
-    (gaze).toFixed(2),
-    (0).toFixed(2),
-    (mouth).toFixed(2),
-    (brow).toFixed(2),
-    (0).toFixed(2),
+    (gaze * 0.25).toFixed(3),       // [0] gaze_x  ∈ ±0.25
+    (0).toFixed(3),                   // [1] gaze_y  (not modelled in 2-D explorer)
+    (0).toFixed(3),                   // [2] gaze_z  (not modelled in 2-D explorer)
+    (mouth * 0.07).toFixed(3),       // [3] mouthAp ∈ [0, 0.07]
+    (-brow * 0.08).toFixed(3),       // [4] browH   ≤ 0 when raised (y↓ screen-space)
   ];
   const uNTex = String.raw`\mathbf{u}^N_t = [${uN.join(",\;")}]^\top \in \mathbb{R}^5`;
 

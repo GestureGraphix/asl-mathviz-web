@@ -75,7 +75,7 @@ const PARAMS = [
   { sym: "O",   name: "Orientation",        dim: "Σ_O",  color: "var(--sky)",   tex: String.raw`O \in \Sigma_O`, desc: "Palm normal direction. 14-category inventory. Orientation grading uses angular tolerance εO = 20°." },
   { sym: "M_path", name: "Path shape",      dim: "{str,arc,circ,rep}", color: "var(--mint)", tex: String.raw`M_{\mathrm{path}} \in \{\mathrm{str},\mathrm{arc},\mathrm{circ},\mathrm{rep}\}`, desc: "Geometric shape of the dominant hand trajectory. Deterministic boolean predicates on γ." },
   { sym: "M_manner", name: "Movement manner", dim: "{smo,tri,hld}", color: "var(--lav)", tex: String.raw`M_{\mathrm{manner}} \in \{\mathrm{smo},\mathrm{tri},\mathrm{hld}\}`, desc: "Qualitative velocity profile. Smooth single-peak, trilled ≥3 peaks, or hold." },
-  { sym: "N",   name: "Non-manual markers", dim: "Σ_N",  color: "var(--lav)",   tex: String.raw`N \in \Sigma_N`, desc: "Facial grammar: gaze, mouth aperture, brow height, head tilt — 5-D vector from face mesh." },
+  { sym: "N",   name: "Non-manual markers", dim: "Σ_N",  color: "var(--lav)",   tex: String.raw`N \in \Sigma_N`, desc: "Facial grammar: gaze (x,y,z), mouth aperture, brow height — u^N ∈ ℝ⁵ from the 468-point face mesh. No head tilt component." },
 ];
 
 const B_TUPLE_TEX = String.raw`B = \bigl(H^d,\; H^n,\; \kappa,\; \Delta_H,\; L,\; O,\; M_{\mathrm{path}},\; M_{\mathrm{manner}},\; N\bigr) \;\in\; \Sigma_B`;
