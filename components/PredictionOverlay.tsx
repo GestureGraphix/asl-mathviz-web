@@ -120,99 +120,75 @@ export function PredictionOverlay({ onShowCanonical }: { onShowCanonical?: (glos
               left: 40,
               zIndex: 10,
               pointerEvents: "none",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              alignItems: "flex-start",
             }}
           >
-            <div
-              style={{
-                fontFamily: "var(--font-display, 'Bodoni Moda', serif)",
-                fontStyle: "italic",
-                fontSize: "clamp(56px, 7.5vw, 96px)",
-                fontWeight: 400,
-                lineHeight: 1,
-                letterSpacing: "-0.01em",
-                color: "#ffffff",
-                textShadow: "0 2px 12px rgba(0,0,0,0.45), 0 1px 3px rgba(0,0,0,0.6)",
-              }}
-            >
+            {/* Gloss */}
+            <div style={{
+              fontFamily: "var(--font-display, 'Bodoni Moda', serif)",
+              fontStyle: "italic",
+              fontSize: "clamp(56px, 7.5vw, 96px)",
+              fontWeight: 400,
+              lineHeight: 1,
+              letterSpacing: "-0.01em",
+              color: "#ffffff",
+              textShadow: "0 2px 12px rgba(0,0,0,0.45), 0 1px 3px rgba(0,0,0,0.6)",
+            }}>
               {prediction.gloss.toLowerCase().replace(/_/g, " ")}
             </div>
 
-            {/* Top-3 confidence bars */}
-            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 5 }}>
-              {prediction.top_k.slice(0, 3).map((entry, i) => {
-                const color = GLOSS_TO_COLOR[entry.gloss] ?? "#3ea89f";
-                const pct   = Math.round(entry.confidence * 100);
-                return (
-                  <div key={entry.gloss} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {/* Rank dot */}
-                    <span style={{
-                      width: 5, height: 5, borderRadius: "50%",
-                      background: i === 0 ? color : "rgba(255,255,255,0.22)",
-                      flexShrink: 0,
-                    }} />
-                    {/* Gloss label */}
-                    <span style={{
-                      fontFamily: "var(--font-mono, monospace)",
-                      fontSize: 10,
-                      color: i === 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.45)",
-                      width: 96,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      letterSpacing: "0.04em",
-                    }}>
-                      {entry.gloss.toLowerCase().replace(/_/g, " ")}
-                    </span>
-                    {/* Bar track */}
-                    <div style={{
-                      width: 80,
-                      height: 3,
-                      background: "rgba(255,255,255,0.08)",
-                      borderRadius: 2,
-                      overflow: "hidden",
-                    }}>
-                      <motion.div
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.35, ease: "easeOut" }}
-                        style={{
-                          height: "100%",
-                          background: i === 0 ? color : "rgba(255,255,255,0.25)",
-                          borderRadius: 2,
-                        }}
-                      />
-                    </div>
-                    {/* Percentage */}
-                    <span style={{
-                      fontFamily: "var(--font-mono, monospace)",
-                      fontSize: 10,
-                      color: i === 0 ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.35)",
-                      minWidth: 28,
-                      textAlign: "right",
-                    }}>
-                      {pct}%
-                    </span>
-                  </div>
-                );
-              })}
+            {/* Single confidence badge */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              pointerEvents: "none",
+            }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: GLOSS_TO_COLOR[prediction.gloss] ?? "#3ea89f",
+                flexShrink: 0,
+              }} />
+              <span style={{
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: 11,
+                color: "rgba(255,255,255,0.6)",
+                letterSpacing: "0.04em",
+              }}>
+                {Math.round(prediction.confidence * 100)}% confidence
+              </span>
             </div>
 
+            {/* Action button — separated clearly from the badge */}
             {onShowCanonical && (
               <button
                 onClick={() => onShowCanonical(prediction.gloss)}
                 style={{
-                  marginTop: 10,
                   pointerEvents: "auto",
-                  background: "rgba(0,0,0,0.38)",
-                  border: "1px solid rgba(255,255,255,0.22)",
-                  borderRadius: 5,
-                  color: "rgba(255,255,255,0.72)",
+                  background: "rgba(255,255,255,0.10)",
+                  border: "1px solid rgba(255,255,255,0.28)",
+                  borderRadius: 6,
+                  color: "rgba(255,255,255,0.85)",
                   fontFamily: "var(--font-mono, monospace)",
                   fontSize: 10,
-                  letterSpacing: "0.06em",
-                  padding: "4px 12px",
+                  letterSpacing: "0.07em",
+                  padding: "6px 16px",
                   cursor: "pointer",
-                  backdropFilter: "blur(6px)",
-                  display: "block",
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)",
+                  transition: "background 0.15s, border-color 0.15s",
+                  marginTop: 4,
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.18)";
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.5)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.10)";
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.28)";
                 }}
               >
                 → show canonical

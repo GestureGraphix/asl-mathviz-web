@@ -50,15 +50,17 @@ export default function Home() {
   useMediaPipe({ videoRef, enabled: isRecognizing });
   useInference({ enabled: isRecognizing });
 
-  const status          = useAppStore((s) => s.status);
-  const candidate       = useAppStore((s) => s.candidate);
-  const landmarks       = useAppStore((s) => s.landmarks);
-  const clearTranscript = useAppStore((s) => s.clearTranscript);
-  const setStatus       = useAppStore((s) => s.setStatus);
-  const prediction      = useAppStore((s) => s.prediction);
-  const modelMode       = useAppStore((s) => s.modelMode);
-  const setModelMode    = useAppStore((s) => s.setModelMode);
-  const fsLetter        = useAppStore((s) => s.fsLetter);
+  const status             = useAppStore((s) => s.status);
+  const candidate          = useAppStore((s) => s.candidate);
+  const landmarks          = useAppStore((s) => s.landmarks);
+  const clearTranscript    = useAppStore((s) => s.clearTranscript);
+  const setStatus          = useAppStore((s) => s.setStatus);
+  const prediction         = useAppStore((s) => s.prediction);
+  const modelMode          = useAppStore((s) => s.modelMode);
+  const setModelMode       = useAppStore((s) => s.setModelMode);
+  const signModelVersion   = useAppStore((s) => s.signModelVersion);
+  const setSignModelVersion = useAppStore((s) => s.setSignModelVersion);
+  const fsLetter           = useAppStore((s) => s.fsLetter);
 
   const hasHands = landmarks?.left_hand != null || landmarks?.right_hand != null;
 
@@ -166,7 +168,7 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Model toggle — Signs | A–Z */}
+              {/* Model toggle — 3-way pill */}
               {status === "live" && (
                 <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10 }}>
                   <div style={{
@@ -177,20 +179,39 @@ export default function Home() {
                     backdropFilter: "blur(8px)",
                     WebkitBackdropFilter: "blur(8px)",
                   }}>
-                    {(["signs", "fingerspelling"] as const).map((m) => (
-                      <button key={m} onClick={() => setModelMode(m)} style={{
-                        padding: "5px 14px",
-                        fontSize: 10,
-                        fontFamily: "var(--font-mono, monospace)",
-                        letterSpacing: "0.07em",
-                        background: modelMode === m ? "rgba(255,255,255,0.14)" : "transparent",
-                        color: modelMode === m ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
-                        border: "none", cursor: "pointer",
-                        transition: "background 0.15s, color 0.15s",
-                      }}>
-                        {m === "signs" ? "Signs" : "A–Z"}
-                      </button>
-                    ))}
+                    {([
+                      { key: "v1",    label: "50 signs",    mode: "signs" as const,          ver: "v1" as const },
+                      { key: "v2",    label: "2,279 signs", mode: "signs" as const,          ver: "v2" as const },
+                      { key: "fs",    label: "A–Z",         mode: "fingerspelling" as const, ver: null          },
+                    ]).map(({ key, label, mode, ver }) => {
+                      const active = ver
+                        ? modelMode === mode && signModelVersion === ver
+                        : modelMode === mode;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => {
+                            setModelMode(mode);
+                            if (ver) setSignModelVersion(ver);
+                          }}
+                          style={{
+                            padding: "5px 13px",
+                            fontSize: 10,
+                            fontFamily: "var(--font-mono, monospace)",
+                            letterSpacing: "0.06em",
+                            background: active ? "rgba(255,255,255,0.14)" : "transparent",
+                            color: active ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
+                            border: "none",
+                            borderRight: key !== "fs" ? "1px solid rgba(255,255,255,0.08)" : "none",
+                            cursor: "pointer",
+                            transition: "background 0.15s, color 0.15s",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -221,13 +242,15 @@ export default function Home() {
 
               {/* Prediction gloss overlay */}
               {modelMode === "signs" && (
-                <PredictionOverlay onShowCanonical={handleShowCanonical} />
+                <PredictionOverlay
+                  onShowCanonical={signModelVersion === "v1" ? handleShowCanonical : undefined}
+                />
               )}
 
-              {/* Live top-k readout */}
-              {status === "live" && modelMode === "signs" && (candidate || prediction) && (() => {
-                const topk   = (candidate ?? prediction)!.top_k;
-                const isLive = !!candidate;
+              {/* Live top-k readout — shown only while model is actively thinking */}
+              {status === "live" && modelMode === "signs" && candidate && (() => {
+                const topk   = candidate.top_k;
+                const isLive = true;
                 return (
                   <div style={{
                     position: "absolute", top: 60, right: 14, zIndex: 10,
@@ -240,9 +263,9 @@ export default function Home() {
                     <div style={{
                       fontFamily: "var(--font-mono, monospace)",
                       fontSize: 9, letterSpacing: "0.08em", marginBottom: 6,
-                      color: isLive ? "rgba(62,168,159,0.7)" : "rgba(255,255,255,0.2)",
+                      color: "rgba(62,168,159,0.7)",
                     }}>
-                      {isLive ? "live · top-5" : "last · top-5"}
+                      live · top-5
                     </div>
                     {topk.slice(0, 5).map((entry, i) => (
                       <div key={i} style={{
@@ -269,11 +292,11 @@ export default function Home() {
                 );
               })()}
 
-              {/* Signs-mode visualisation layer */}
-              {modelMode === "signs" && <AttentionStrip />}
-              {status === "live" && modelMode === "signs" && <PhonologicalSpectrogram />}
-              {status === "live" && modelMode === "signs" && <PhonologyArcs />}
-              {status === "live" && modelMode === "signs" && <SignDetonation />}
+              {/* v1-only visualisation layer */}
+              {modelMode === "signs" && signModelVersion === "v1" && <AttentionStrip />}
+              {status === "live" && modelMode === "signs" && signModelVersion === "v1" && <PhonologicalSpectrogram />}
+              {status === "live" && modelMode === "signs" && signModelVersion === "v1" && <PhonologyArcs />}
+              {status === "live" && modelMode === "signs" && signModelVersion === "v1" && <SignDetonation />}
 
               {/* Status overlays */}
               {status === "idle"    && <CenteredMessage>Requesting camera…</CenteredMessage>}
@@ -314,20 +337,34 @@ export default function Home() {
           {/* ── Sidebar ─────────────────────────────────────────── */}
           {mode === "recognize" && !isCinema && (
             <div className="app-sidebar">
+              {/* Phonological features — always shown */}
               <div className="sidebar-section">
                 <span className="section-header">Phonological Features</span>
                 <PhonologyBars />
               </div>
 
-              <div className="sidebar-section">
-                <span className="section-header">Codebook Activations</span>
-                <CodebookGrid />
-              </div>
+              {/* v1: codebook + minimal pair */}
+              {signModelVersion === "v1" && modelMode === "signs" && (
+                <>
+                  <div className="sidebar-section">
+                    <span className="section-header">Codebook Activations</span>
+                    <CodebookGrid />
+                  </div>
 
-              <div className="sidebar-section">
-                <span className="section-header">Minimal Pair</span>
-                <MinimalPairPanel onViewGeodesic={handleViewGeodesic} />
-              </div>
+                  <div className="sidebar-section">
+                    <span className="section-header">Minimal Pair</span>
+                    <MinimalPairPanel onViewGeodesic={handleViewGeodesic} />
+                  </div>
+                </>
+              )}
+
+              {/* v2: live top-5 breakdown */}
+              {signModelVersion === "v2" && modelMode === "signs" && (
+                <div className="sidebar-section">
+                  <span className="section-header">Top-5 Predictions</span>
+                  <V2TopK />
+                </div>
+              )}
 
               <div style={{
                 display: "flex", gap: 12, flexWrap: "wrap",
@@ -400,6 +437,70 @@ function ExitFullscreenIcon() {
       <path d="M3 16h3a2 2 0 0 1 2 2v3" />
       <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
     </svg>
+  );
+}
+
+// ── V2 sidebar: live top-5 with confidence bars ────────────────────
+
+function V2TopK() {
+  const prediction = useAppStore((s) => s.prediction);
+  const candidate  = useAppStore((s) => s.candidate);
+  const active     = candidate ?? prediction;
+
+  if (!active) {
+    return (
+      <span style={{ fontFamily: "var(--font-ui, Figtree, sans-serif)", fontSize: 11, color: "var(--ink5)" }}>
+        Sign something to see predictions
+      </span>
+    );
+  }
+
+  const isLive = !!candidate;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+      <div style={{
+        fontFamily: "var(--font-mono, monospace)",
+        fontSize: 9, color: isLive ? "var(--teal)" : "var(--ink4)",
+        letterSpacing: "0.08em", marginBottom: 2,
+      }}>
+        {isLive ? "live" : "last committed"}
+      </div>
+      {active.top_k.slice(0, 5).map((entry, i) => {
+        const pct = Math.round(entry.confidence * 100);
+        return (
+          <div key={entry.gloss} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: 11,
+                color: i === 0 ? "var(--ink)" : "var(--ink4)",
+                fontWeight: i === 0 ? 600 : 400,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%",
+              }}>
+                {entry.gloss.toLowerCase().replace(/_/g, " ")}
+              </span>
+              <span style={{
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: 10,
+                color: i === 0 ? "var(--teal)" : "var(--ink5)",
+              }}>
+                {pct}%
+              </span>
+            </div>
+            <div style={{ height: 2, background: "var(--rule)", borderRadius: 1, overflow: "hidden" }}>
+              <div style={{
+                height: "100%",
+                width: `${pct}%`,
+                background: i === 0 ? "var(--teal)" : "var(--rule)",
+                borderRadius: 1,
+                transition: "width 0.25s ease-out",
+              }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
