@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { label: "Math", href: "#math" },
   { label: "Roadmap", href: "#roadmap" },
   { label: "About", href: "#about" },
+  { label: "Math Explorer", href: "/research" },
 ];
 
 export function NavBar() {
