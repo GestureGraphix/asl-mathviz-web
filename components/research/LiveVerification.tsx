@@ -137,17 +137,21 @@ function LiveFaceViz({ uN }: LiveFaceProps) {
           ].map(({ label, val, color }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--ink4)", minWidth: 36 }}>{label}</span>
-              <div style={{ flex: 1, height: 5, background: "var(--bg-raised)", borderRadius: 99, overflow: "hidden" }}>
+              {/* Center-origin track: zero at 50%, negative grows left, positive grows right */}
+              <div style={{ flex: 1, height: 5, background: "var(--bg-raised)", borderRadius: 99, overflow: "hidden", position: "relative" }}>
+                <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "var(--rule)", zIndex: 1 }} />
                 <div style={{
-                  width: `${Math.min(100, Math.abs(val) * 100)}%`,
-                  height: "100%",
+                  position: "absolute",
+                  top: 0, bottom: 0,
+                  ...(val >= 0
+                    ? { left: "50%", width: `${Math.min(50, Math.abs(val) * 200)}%` }
+                    : { right: "50%", width: `${Math.min(50, Math.abs(val) * 200)}%` }),
                   background: color,
-                  marginLeft: val < 0 ? "auto" : 0,
                   transition: "width 0.06s ease-out",
                 }} />
               </div>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color, minWidth: 38, textAlign: "right" }}>
-                {val.toFixed(3)}
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color, minWidth: 44, textAlign: "right" }}>
+                {val >= 0 ? "+" : ""}{val.toFixed(3)}
               </span>
             </div>
           )) : (
