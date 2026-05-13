@@ -3,6 +3,7 @@
 import {
   HandLandmarker,
   PoseLandmarker,
+  FaceLandmarker,
   FilesetResolver,
 } from "@mediapipe/tasks-vision";
 import type { MediaPipeWorkerIn, MediaPipeWorkerOut } from "@/types";
@@ -14,12 +15,13 @@ const WASM_PATH =
 
 let handLandmarker: HandLandmarker | null = null;
 let poseLandmarker: PoseLandmarker | null = null;
+let faceLandmarker: FaceLandmarker | null = null;
 
 async function init() {
   try {
     const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
 
-    [handLandmarker, poseLandmarker] = await Promise.all([
+    [handLandmarker, poseLandmarker, faceLandmarker] = await Promise.all([
       HandLandmarker.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath:
@@ -44,6 +46,19 @@ async function init() {
         minPoseDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5,
       }),
+
+      FaceLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+          delegate: "GPU",
+        },
+        runningMode: "VIDEO",
+        numFaces: 1,
+        minFaceDetectionConfidence: 0.5,
+        minFacePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      }),
     ]);
 
     self.postMessage({ type: "ready" } satisfies MediaPipeWorkerOut);
@@ -56,10 +71,11 @@ async function init() {
 }
 
 function processFrame(bitmap: ImageBitmap, timestamp_ms: number) {
-  if (!handLandmarker || !poseLandmarker) return;
+  if (!handLandmarker || !poseLandmarker || !faceLandmarker) return;
 
   const handResult = handLandmarker.detectForVideo(bitmap, timestamp_ms);
   const poseResult = poseLandmarker.detectForVideo(bitmap, timestamp_ms);
+  const faceResult = faceLandmarker.detectForVideo(bitmap, timestamp_ms);
 
   bitmap.close();
 
@@ -94,6 +110,17 @@ function processFrame(bitmap: ImageBitmap, timestamp_ms: number) {
     }
   }
 
+  // Extract face landmarks (468 points × 3 = 1404 floats)
+  let face: Float32Array | undefined;
+  if (faceResult.faceLandmarks?.[0]) {
+    face = new Float32Array(1404);
+    for (let j = 0; j < 468; j++) {
+      face[j * 3]     = faceResult.faceLandmarks[0][j].x;
+      face[j * 3 + 1] = faceResult.faceLandmarks[0][j].y;
+      face[j * 3 + 2] = faceResult.faceLandmarks[0][j].z;
+    }
+  }
+
   // Zero-copy transfer to main thread
   const transferables: ArrayBuffer[] = [];
   const payload: MediaPipeWorkerOut = {
@@ -103,12 +130,14 @@ function processFrame(bitmap: ImageBitmap, timestamp_ms: number) {
       ...(left_hand  && { left_hand:  left_hand.buffer  as ArrayBuffer }),
       ...(right_hand && { right_hand: right_hand.buffer as ArrayBuffer }),
       ...(pose       && { pose:       pose.buffer       as ArrayBuffer }),
+      ...(face       && { face:       face.buffer       as ArrayBuffer }),
     },
   };
 
   if (left_hand)  transferables.push(left_hand.buffer  as ArrayBuffer);
   if (right_hand) transferables.push(right_hand.buffer as ArrayBuffer);
   if (pose)       transferables.push(pose.buffer       as ArrayBuffer);
+  if (face)       transferables.push(face.buffer       as ArrayBuffer);
 
   self.postMessage(payload, transferables);
 }
