@@ -24,7 +24,7 @@ export const useAppStore = create<AppState>((set) => ({
   transcript: [],
   signFrames: 0,
   modelMode: "signs",
-  signModelVersion: "v2" as SignModelVersion,
+  signModelVersion: "v1" as SignModelVersion,
   fsLetter: null,
 
   setStatus: (status: AppStatus) => set({ status }),

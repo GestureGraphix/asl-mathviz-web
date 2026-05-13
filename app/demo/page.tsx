@@ -18,21 +18,17 @@ import { PhonologyArcs } from "@/components/PhonologyArcs";
 import { SignDetonation } from "@/components/SignDetonation";
 import { PhonologicalSpectrogram } from "@/components/PhonologicalSpectrogram";
 import { useInference } from "@/hooks/useInference";
-import { VOCAB_GLOSSES } from "@/lib/signData";
 
 type AppMode = "recognize" | "generate" | "geodesic";
 
 export default function Home() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const shellRef = useRef<HTMLDivElement>(null);
-  const [isCinema, setIsCinema] = useState(false);
-  const [mode, setMode]       = useState<AppMode>("recognize");
+  const videoRef  = useRef<HTMLVideoElement>(null);
+  const shellRef  = useRef<HTMLDivElement>(null);
+  const [isCinema, setIsCinema]       = useState(false);
+  const [mode, setMode]               = useState<AppMode>("recognize");
   const [canonicalGloss, setCanonicalGloss] = useState<string | null>(null);
-  const [videoMain, setVideoMain] = useState(false);
+  const [videoMain, setVideoMain]     = useState(false);
   const [geodesicPair, setGeodesicPair] = useState<{ a: string; b: string } | null>(null);
-  const [autoGeo, setAutoGeo]           = useState<{ a: string; b: string } | null>(null);
-  const prevPredRef      = useRef<string | null>(null);
-  const autoGeoTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleShowCanonical = useCallback((gloss: string) => {
     setCanonicalGloss(gloss);
@@ -54,34 +50,15 @@ export default function Home() {
   useMediaPipe({ videoRef, enabled: isRecognizing });
   useInference({ enabled: isRecognizing });
 
-  const status         = useAppStore((s) => s.status);
-  const candidate      = useAppStore((s) => s.candidate);
-  const landmarks      = useAppStore((s) => s.landmarks);
+  const status          = useAppStore((s) => s.status);
+  const candidate       = useAppStore((s) => s.candidate);
+  const landmarks       = useAppStore((s) => s.landmarks);
   const clearTranscript = useAppStore((s) => s.clearTranscript);
-  const setStatus      = useAppStore((s) => s.setStatus);
-  const prediction     = useAppStore((s) => s.prediction);
-  const modelMode          = useAppStore((s) => s.modelMode);
-  const setModelMode       = useAppStore((s) => s.setModelMode);
-  const signModelVersion   = useAppStore((s) => s.signModelVersion);
-  const setSignModelVersion = useAppStore((s) => s.setSignModelVersion);
-  const fsLetter           = useAppStore((s) => s.fsLetter);
-
-  // ── Auto-geodesic: fires on every new committed prediction pair (v1 only) ──
-  useEffect(() => {
-    if (signModelVersion !== "v1") return;
-    if (!prediction) return;
-    const prev = prevPredRef.current;
-    prevPredRef.current = prediction.gloss;
-    if (!prev || prev === prediction.gloss) return;
-
-    if (autoGeoTimerRef.current) clearTimeout(autoGeoTimerRef.current);
-    setAutoGeo({ a: prev, b: prediction.gloss });
-    autoGeoTimerRef.current = setTimeout(() => setAutoGeo(null), 6000);
-  }, [prediction, signModelVersion]);
-
-  useEffect(() => () => {
-    if (autoGeoTimerRef.current) clearTimeout(autoGeoTimerRef.current);
-  }, []);
+  const setStatus       = useAppStore((s) => s.setStatus);
+  const prediction      = useAppStore((s) => s.prediction);
+  const modelMode       = useAppStore((s) => s.modelMode);
+  const setModelMode    = useAppStore((s) => s.setModelMode);
+  const fsLetter        = useAppStore((s) => s.fsLetter);
 
   const hasHands = landmarks?.left_hand != null || landmarks?.right_hand != null;
 
@@ -89,11 +66,8 @@ export default function Home() {
   const toggleCinema = useCallback(() => {
     setIsCinema((prev) => {
       const next = !prev;
-      if (next) {
-        shellRef.current?.requestFullscreen?.().catch(() => {});
-      } else {
-        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-      }
+      if (next) shellRef.current?.requestFullscreen?.().catch(() => {});
+      else if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
       return next;
     });
   }, []);
@@ -102,7 +76,6 @@ export default function Home() {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-
       if (e.key === "f" || e.key === "F") toggleCinema();
       if (e.key === "c" || e.key === "C") clearTranscript();
       if (e.key === " ") {
@@ -114,7 +87,6 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleCinema, clearTranscript, setStatus, status]);
 
-  // Sync cinema state if user exits fullscreen via Escape
   useEffect(() => {
     function onFsChange() {
       if (!document.fullscreenElement) setIsCinema(false);
@@ -125,7 +97,6 @@ export default function Home() {
 
   return (
     <>
-
       <div ref={shellRef} className="app-shell" data-cinema={isCinema || undefined}>
         {!isCinema && (
           <AppHeader
@@ -140,14 +111,15 @@ export default function Home() {
             ? { gridTemplateColumns: "1fr" }
             : undefined
         }>
-          {/* ── Generate mode: full-area avatar ─────────────────── */}
+
+          {/* ── Generate mode ──────────────────────────────────── */}
           {mode === "generate" && (
             <div className="app-scene" style={{ overflow: "hidden" }}>
               <PhonologicalAvatar jumpGloss={canonicalGloss} />
             </div>
           )}
 
-          {/* ── Geodesic mode: phonological manifold navigation ──── */}
+          {/* ── Geodesic mode ──────────────────────────────────── */}
           {mode === "geodesic" && (
             <div className="app-scene" style={{ overflow: "hidden" }}>
               <GeodesicInterpolator
@@ -158,293 +130,211 @@ export default function Home() {
             </div>
           )}
 
-          {/* Hidden video element — always mounted so videoRef stays valid across mode switches */}
+          {/* Hidden video — always mounted so videoRef stays valid across modes */}
           <video ref={videoRef} playsInline muted style={{ display: "none" }} />
 
-          {/* ── Recognize mode: left scene ───────────────────────── */}
+          {/* ── Recognize mode ─────────────────────────────────── */}
           {mode === "recognize" && (
-          <div className="app-scene" style={{ background: "#040812" }}>
+            <div className="app-scene" style={{ background: "#040812" }}>
 
-            {/* ── Main scene ──────────────────────────────────── */}
-            {status === "live" && !videoMain && <HandScene3D />}
-            {status === "live" &&  videoMain && (
-              <div style={{ position: "absolute", inset: 0, zIndex: 2 }}>
-                <HandCanvas2D videoRef={videoRef} mirror />
-              </div>
-            )}
-
-            {/* ── PIP (swaps on click) ─────────────────────────── */}
-            {status === "live" && (
-              <div
-                className="demo-pip"
-                onClick={() => setVideoMain((v) => !v)}
-                title="Click to swap views"
-                style={{
-                  position: "absolute",
-                  bottom: 14,
-                  right: 14,
-                  width: 192,
-                  height: 144,
-                  borderRadius: 8,
-                  overflow: "hidden",
-                  border: "1px solid rgba(255,255,255,0.18)",
-                  boxShadow: "0 4px 24px rgba(0,0,0,0.55)",
-                  zIndex: 6,
-                  cursor: "pointer",
-                  background: "#040812",
-                }}
-              >
-                {videoMain
-                  ? <HandScene3D />
-                  : <HandCanvas2D videoRef={videoRef} mirror />}
-              </div>
-            )}
-
-            {/* ── Model mode toggle ────────────────────────────── */}
-            {status === "live" && (
-              <div style={{
-                position: "absolute", top: 12, left: 12, zIndex: 10,
-                display: "flex", flexDirection: "column", gap: 4,
-              }}>
-                {/* Row 1: Signs vs A-Z */}
-                <div style={{
-                  display: "flex",
-                  background: "rgba(4,8,18,0.75)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 6, overflow: "hidden",
-                  backdropFilter: "blur(6px)",
-                }}>
-                  {(["signs", "fingerspelling"] as const).map((m) => (
-                    <button key={m} onClick={() => setModelMode(m)} style={{
-                      padding: "4px 12px",
-                      fontSize: 10,
-                      fontFamily: "var(--font-mono, monospace)",
-                      letterSpacing: "0.06em",
-                      background: modelMode === m ? "rgba(255,255,255,0.12)" : "transparent",
-                      color: modelMode === m ? "var(--ink1, #f0f0f0)" : "var(--ink4, #666)",
-                      border: "none", cursor: "pointer",
-                      transition: "background 0.15s, color 0.15s",
-                    }}>
-                      {m === "signs" ? "Signs" : "A–Z"}
-                    </button>
-                  ))}
+              {/* Main scene */}
+              {status === "live" && !videoMain && <HandScene3D />}
+              {status === "live" &&  videoMain && (
+                <div style={{ position: "absolute", inset: 0, zIndex: 2 }}>
+                  <HandCanvas2D videoRef={videoRef} mirror />
                 </div>
-                {/* Row 2: sign model version (only when in signs mode) */}
-                {modelMode === "signs" && (
+              )}
+
+              {/* PIP — click to swap primary / secondary views */}
+              {status === "live" && (
+                <div
+                  className="demo-pip"
+                  onClick={() => setVideoMain((v) => !v)}
+                  title="Click to swap views"
+                  style={{
+                    position: "absolute", bottom: 14, right: 14,
+                    width: 192, height: 144,
+                    borderRadius: 8, overflow: "hidden",
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    boxShadow: "0 4px 24px rgba(0,0,0,0.55)",
+                    zIndex: 6, cursor: "pointer", background: "#040812",
+                  }}
+                >
+                  {videoMain
+                    ? <HandScene3D />
+                    : <HandCanvas2D videoRef={videoRef} mirror />}
+                </div>
+              )}
+
+              {/* Model toggle — Signs | A–Z */}
+              {status === "live" && (
+                <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10 }}>
                   <div style={{
                     display: "flex",
-                    background: "rgba(4,8,18,0.75)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 6, overflow: "hidden",
-                    backdropFilter: "blur(6px)",
+                    background: "rgba(4,8,18,0.6)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 8, overflow: "hidden",
+                    backdropFilter: "blur(8px)",
+                    WebkitBackdropFilter: "blur(8px)",
                   }}>
-                    {([["v1", "50 signs"], ["v2", "2,279 signs"]] as const).map(([v, label]) => (
-                      <button key={v} onClick={() => setSignModelVersion(v)} style={{
-                        padding: "3px 10px",
-                        fontSize: 9,
+                    {(["signs", "fingerspelling"] as const).map((m) => (
+                      <button key={m} onClick={() => setModelMode(m)} style={{
+                        padding: "5px 14px",
+                        fontSize: 10,
                         fontFamily: "var(--font-mono, monospace)",
-                        letterSpacing: "0.06em",
-                        background: signModelVersion === v ? "rgba(255,255,255,0.12)" : "transparent",
-                        color: signModelVersion === v ? "var(--ink1, #f0f0f0)" : "var(--ink4, #666)",
+                        letterSpacing: "0.07em",
+                        background: modelMode === m ? "rgba(255,255,255,0.14)" : "transparent",
+                        color: modelMode === m ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
                         border: "none", cursor: "pointer",
                         transition: "background 0.15s, color 0.15s",
                       }}>
-                        {label}
+                        {m === "signs" ? "Signs" : "A–Z"}
                       </button>
                     ))}
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* ── Fingerspelling letter display ─────────────────── */}
-            {status === "live" && modelMode === "fingerspelling" && fsLetter && (
-              <div style={{
-                position: "absolute", top: "40%", left: "50%",
-                transform: "translate(-50%, -50%)",
-                zIndex: 8, textAlign: "center", pointerEvents: "none",
-              }}>
-                <div style={{
-                  fontFamily: "var(--font-mono, monospace)",
-                  fontSize: 140, fontWeight: 700, lineHeight: 1,
-                  color: "rgba(255,255,255,0.92)",
-                  textShadow: "0 0 60px rgba(80,180,255,0.35)",
-                }}>
-                  {fsLetter}
                 </div>
-                <div style={{
-                  fontFamily: "var(--font-mono, monospace)",
-                  fontSize: 11, color: "var(--ink4, #666)", marginTop: 8,
-                }}>
-                  fingerspelling
-                </div>
-              </div>
-            )}
+              )}
 
-            {modelMode === "signs" && (
-              <PredictionOverlay
-                onShowCanonical={signModelVersion === "v1" ? handleShowCanonical : undefined}
-              />
-            )}
-
-            {/* ── Live top-k readout (persists between predictions) ── */}
-            {status === "live" && modelMode === "signs" && (candidate || prediction) && (() => {
-              const topk = (candidate ?? prediction)!.top_k;
-              const isLive = !!candidate;
-              return (
+              {/* Fingerspelling letter overlay */}
+              {status === "live" && modelMode === "fingerspelling" && fsLetter && (
                 <div style={{
-                  position: "absolute", top: 60, right: 14, zIndex: 10,
-                  background: "rgba(4,8,18,0.82)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 6, padding: "8px 12px",
-                  backdropFilter: "blur(6px)",
-                  pointerEvents: "none", minWidth: 160,
+                  position: "absolute", top: "40%", left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 8, textAlign: "center", pointerEvents: "none",
                 }}>
                   <div style={{
                     fontFamily: "var(--font-mono, monospace)",
-                    fontSize: 9, letterSpacing: "0.08em", marginBottom: 6,
-                    color: isLive ? "rgba(62,168,159,0.7)" : "rgba(255,255,255,0.2)",
+                    fontSize: 140, fontWeight: 700, lineHeight: 1,
+                    color: "rgba(255,255,255,0.92)",
+                    textShadow: "0 0 60px rgba(80,180,255,0.35)",
                   }}>
-                    {isLive ? "live · top-5" : "last · top-5"}
+                    {fsLetter}
                   </div>
-                  {topk.slice(0, 5).map((entry, i) => (
-                    <div key={i} style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      marginBottom: i < 4 ? 4 : 0,
-                    }}>
-                      <span style={{
-                        fontFamily: "var(--font-mono, monospace)", fontSize: 10,
-                        color: i === 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
-                        flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      }}>
-                        {entry.gloss.toLowerCase().replace(/_/g, " ")}
-                      </span>
-                      <span style={{
-                        fontFamily: "var(--font-mono, monospace)", fontSize: 10,
-                        color: i === 0 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.25)",
-                        minWidth: 32, textAlign: "right",
-                      }}>
-                        {Math.round(entry.confidence * 100)}%
-                      </span>
-                    </div>
-                  ))}
+                  <div style={{
+                    fontFamily: "var(--font-mono, monospace)",
+                    fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 8,
+                  }}>
+                    fingerspelling
+                  </div>
                 </div>
-              );
-            })()}
-            {modelMode === "signs" && signModelVersion === "v1" && <AttentionStrip />}
-            {status === "live" && modelMode === "signs" && signModelVersion === "v1" && <PhonologicalSpectrogram />}
-            {status === "live" && modelMode === "signs" && signModelVersion === "v1" && <PhonologyArcs />}
-            {status === "live" && modelMode === "signs" && signModelVersion === "v1" && <SignDetonation />}
+              )}
 
-            {status === "idle" && (
-              <CenteredMessage>Requesting camera…</CenteredMessage>
-            )}
-            {status === "loading" && (
-              <CenteredMessage>Loading MediaPipe…</CenteredMessage>
-            )}
-            {status === "error" && (
-              <CenteredMessage accent>
-                Camera access required.
-                <br />
-                <small style={{ fontSize: 11, color: "var(--ink4)" }}>
-                  Allow camera permission and refresh.
-                </small>
-              </CenteredMessage>
-            )}
-            {status === "paused" && (
-              <CenteredMessage muted>Paused — press Space to resume</CenteredMessage>
-            )}
-            {status === "live" && !hasHands && (
-              <CenteredMessage muted>Show your hand to begin.</CenteredMessage>
-            )}
+              {/* Prediction gloss overlay */}
+              {modelMode === "signs" && (
+                <PredictionOverlay onShowCanonical={handleShowCanonical} />
+              )}
 
+              {/* Live top-k readout */}
+              {status === "live" && modelMode === "signs" && (candidate || prediction) && (() => {
+                const topk   = (candidate ?? prediction)!.top_k;
+                const isLive = !!candidate;
+                return (
+                  <div style={{
+                    position: "absolute", top: 60, right: 14, zIndex: 10,
+                    background: "rgba(4,8,18,0.82)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 6, padding: "8px 12px",
+                    backdropFilter: "blur(6px)",
+                    pointerEvents: "none", minWidth: 160,
+                  }}>
+                    <div style={{
+                      fontFamily: "var(--font-mono, monospace)",
+                      fontSize: 9, letterSpacing: "0.08em", marginBottom: 6,
+                      color: isLive ? "rgba(62,168,159,0.7)" : "rgba(255,255,255,0.2)",
+                    }}>
+                      {isLive ? "live · top-5" : "last · top-5"}
+                    </div>
+                    {topk.slice(0, 5).map((entry, i) => (
+                      <div key={i} style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        marginBottom: i < 4 ? 4 : 0,
+                      }}>
+                        <span style={{
+                          fontFamily: "var(--font-mono, monospace)", fontSize: 10,
+                          color: i === 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
+                          flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>
+                          {entry.gloss.toLowerCase().replace(/_/g, " ")}
+                        </span>
+                        <span style={{
+                          fontFamily: "var(--font-mono, monospace)", fontSize: 10,
+                          color: i === 0 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.25)",
+                          minWidth: 32, textAlign: "right",
+                        }}>
+                          {Math.round(entry.confidence * 100)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
 
-            {/* Dev indicator */}
-            {process.env.NODE_ENV === "development" && status === "live" && (
-              <div style={{
-                position: "absolute", bottom: 22, right: 12,
-                fontFamily: "var(--font-mono, monospace)", fontSize: 10,
-                color: "rgba(255,255,255,0.75)",
-                textShadow: "0 1px 3px rgba(0,0,0,0.5)",
-                zIndex: 5,
-              }}>
-                {hasHands
-                  ? `L=${landmarks?.left_hand ? "✓" : "–"} R=${landmarks?.right_hand ? "✓" : "–"}`
-                  : "no hands"}
-                {landmarks?.pose ? "  pose ✓" : ""}
-              </div>
-            )}
-          </div>
-          )} {/* end recognize mode */}
+              {/* Signs-mode visualisation layer */}
+              {modelMode === "signs" && <AttentionStrip />}
+              {status === "live" && modelMode === "signs" && <PhonologicalSpectrogram />}
+              {status === "live" && modelMode === "signs" && <PhonologyArcs />}
+              {status === "live" && modelMode === "signs" && <SignDetonation />}
 
-          {/* ── Right: sidebar (hidden in cinema + generate mode) ── */}
+              {/* Status overlays */}
+              {status === "idle"    && <CenteredMessage>Requesting camera…</CenteredMessage>}
+              {status === "loading" && <CenteredMessage>Loading MediaPipe…</CenteredMessage>}
+              {status === "error"   && (
+                <CenteredMessage accent>
+                  Camera access required.
+                  <br />
+                  <small style={{ fontSize: 11, color: "var(--ink4)" }}>
+                    Allow camera permission and refresh.
+                  </small>
+                </CenteredMessage>
+              )}
+              {status === "paused" && (
+                <CenteredMessage muted>Paused — press Space to resume</CenteredMessage>
+              )}
+              {status === "live" && !hasHands && (
+                <CenteredMessage muted>Show your hand to begin.</CenteredMessage>
+              )}
+
+              {process.env.NODE_ENV === "development" && status === "live" && (
+                <div style={{
+                  position: "absolute", bottom: 22, right: 12,
+                  fontFamily: "var(--font-mono, monospace)", fontSize: 10,
+                  color: "rgba(255,255,255,0.75)",
+                  textShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                  zIndex: 5,
+                }}>
+                  {hasHands
+                    ? `L=${landmarks?.left_hand ? "✓" : "–"} R=${landmarks?.right_hand ? "✓" : "–"}`
+                    : "no hands"}
+                  {landmarks?.pose ? "  pose ✓" : ""}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Sidebar ─────────────────────────────────────────── */}
           {mode === "recognize" && !isCinema && (
             <div className="app-sidebar">
-              {signModelVersion === "v1" && (
-                <>
-                  <div className="sidebar-section">
-                    <span className="section-header">Phonological Features</span>
-                    <PhonologyBars />
-                  </div>
+              <div className="sidebar-section">
+                <span className="section-header">Phonological Features</span>
+                <PhonologyBars />
+              </div>
 
-                  <div className="sidebar-section">
-                    <span className="section-header">Codebook Activations</span>
-                    <CodebookGrid />
-                  </div>
+              <div className="sidebar-section">
+                <span className="section-header">Codebook Activations</span>
+                <CodebookGrid />
+              </div>
 
-                  <div className="sidebar-section">
-                    <span className="section-header">Minimal Pair</span>
-                    <MinimalPairPanel onViewGeodesic={handleViewGeodesic} />
-                  </div>
+              <div className="sidebar-section">
+                <span className="section-header">Minimal Pair</span>
+                <MinimalPairPanel onViewGeodesic={handleViewGeodesic} />
+              </div>
 
-                  <div className="sidebar-section">
-                    <span className="section-header">Vocabulary · {VOCAB_GLOSSES.length} signs</span>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                      {VOCAB_GLOSSES.map((gloss) => (
-                        <span
-                          key={gloss}
-                          style={{
-                            fontFamily: "var(--font-mono, monospace)",
-                            fontSize: 9,
-                            color: "var(--ink4)",
-                            background: "var(--bg-raised)",
-                            border: "1px solid var(--rule)",
-                            borderRadius: 3,
-                            padding: "2px 5px",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {gloss.toLowerCase().replace(/_/g, " ")}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {signModelVersion === "v2" && (
-                <div className="sidebar-section">
-                  <span className="section-header">Vocabulary · 2,279 signs</span>
-                  <p style={{
-                    fontFamily: "var(--font-ui, Figtree, sans-serif)",
-                    fontSize: 11,
-                    color: "var(--ink4)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}>
-                    Raw-keypoint transformer trained on ASL Citizen + WLASL across 2,279 glosses.
-                    Top-5 predictions shown live.
-                  </p>
-                </div>
-              )}
-
-              {/* Keyboard shortcuts */}
-              <div className="demo-keyboard-hints" style={{
+              <div style={{
                 display: "flex", gap: 12, flexWrap: "wrap",
                 padding: "8px 12px", borderTop: "1px solid var(--rule)",
                 marginTop: "auto",
               }}>
-                {[["F", "cinema"], ["C", "clear"], ["Space", "pause"]].map(([key, label]) => (
+                {([["F", "cinema"], ["C", "clear"], ["Space", "pause"]] as const).map(([key, label]) => (
                   <span key={key} style={{
                     fontFamily: "var(--font-mono, monospace)",
                     fontSize: 9, color: "var(--ink5)",
@@ -467,25 +357,18 @@ export default function Home() {
         <TranscriptStrip />
       </div>
 
-      {/* ── Exit cinema button — fixed overlay, all modes ───────────── */}
+      {/* Cinema exit button */}
       {isCinema && (
         <button
           onClick={toggleCinema}
           title="Exit full screen (F)"
           style={{
-            position: "fixed",
-            top: 10,
-            right: 12,
-            zIndex: 150,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 32,
-            height: 32,
+            position: "fixed", top: 10, right: 12, zIndex: 150,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 32, height: 32,
             background: "rgba(4,8,18,0.55)",
             border: "1px solid rgba(255,255,255,0.14)",
-            borderRadius: 7,
-            cursor: "pointer",
+            borderRadius: 7, cursor: "pointer",
             color: "rgba(255,255,255,0.6)",
             backdropFilter: "blur(6px)",
             WebkitBackdropFilter: "blur(6px)",
@@ -502,68 +385,6 @@ export default function Home() {
         >
           <ExitFullscreenIcon />
         </button>
-      )}
-
-      {/* ── Auto-geodesic overlay ─────────────────────────────────── */}
-      {autoGeo && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 200,
-          background: "var(--bg-base)",
-          display: "flex", flexDirection: "column",
-          animation: "autoGeoFadeIn 0.22s ease forwards",
-        }}>
-          {/* Top label */}
-          <div style={{
-            position: "absolute", top: 10, left: 14, zIndex: 5,
-            fontFamily: "var(--font-mono, monospace)", fontSize: 9,
-            color: "var(--ink5)", letterSpacing: "0.08em",
-            display: "flex", alignItems: "center", gap: 8,
-            pointerEvents: "none",
-          }}>
-            <span style={{ color: "var(--teal)" }}>auto-geodesic</span>
-            <span style={{ color: "var(--ink3)" }}>
-              {autoGeo.a.toLowerCase().replace(/_/g, " ")}
-            </span>
-            <span>→</span>
-            <span style={{ color: "var(--ink3)" }}>
-              {autoGeo.b.toLowerCase().replace(/_/g, " ")}
-            </span>
-          </div>
-
-          {/* Dismiss */}
-          <button
-            onClick={() => {
-              setAutoGeo(null);
-              if (autoGeoTimerRef.current) clearTimeout(autoGeoTimerRef.current);
-            }}
-            style={{
-              position: "absolute", top: 8, right: 12, zIndex: 5,
-              fontFamily: "var(--font-mono, monospace)", fontSize: 9,
-              letterSpacing: "0.06em",
-              background: "var(--bg-raised)", border: "1px solid var(--rule)",
-              borderRadius: 3, color: "var(--ink4)",
-              padding: "2px 10px", cursor: "pointer",
-            }}
-          >
-            esc
-          </button>
-
-          {/* Geodesic fills remaining space */}
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <GeodesicInterpolator
-              key={`auto_${autoGeo.a}__${autoGeo.b}`}
-              initialGlossA={autoGeo.a}
-              initialGlossB={autoGeo.b}
-            />
-          </div>
-
-          {/* Countdown drain bar */}
-          <div style={{
-            position: "absolute", bottom: 0, left: 0, height: 2,
-            background: "var(--teal)",
-            animation: "autoGeoDrain 6000ms linear forwards",
-          }} />
-        </div>
       )}
     </>
   );
@@ -604,4 +425,3 @@ function CenteredMessage({
     </div>
   );
 }
-
