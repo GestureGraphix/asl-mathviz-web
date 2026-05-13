@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useAppStore } from "@/store/appStore";
 
 type AppMode = "recognize" | "generate" | "geodesic";
@@ -35,18 +36,24 @@ export function AppHeader({ mode = "recognize", onModeChange, onToggleCinema }: 
         zIndex: 10,
       }}
     >
-      {/* Brand */}
-      <span
+      {/* Brand — links back to landing */}
+      <Link
+        href="/"
         style={{
           fontFamily: "var(--font-ui, Figtree, sans-serif)",
           fontSize: 14,
           fontWeight: 600,
           letterSpacing: "0.02em",
           color: "var(--ink)",
+          textDecoration: "none",
+          opacity: 1,
+          transition: "opacity 0.15s",
         }}
+        onMouseEnter={e => (e.currentTarget.style.opacity = "0.6")}
+        onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
       >
         ASL MathViz
-      </span>
+      </Link>
 
       {/* Mode toggle */}
       <div style={{ display: "flex", alignItems: "center", gap: 0, justifyContent: "center" }}>

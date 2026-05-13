@@ -7,24 +7,25 @@
 - [ ] Deploy to Vercel — film from the live URL, not localhost
 - [ ] Browser: Chrome, fullscreen, 1920×1080
 - [ ] Camera: good lighting, clean background
-- [ ] Editor open to: `workers/inference.worker.ts`, `workers/mediapipe.worker.ts`, `lib/features.ts`, `components/HandScene3D.tsx`
-- [ ] Practice signs ready: pick 6 from different clusters (e.g. HELLO, THANK_YOU, LEARN, WHERE, MOTHER, MORE)
-- [ ] Practice fingerspelling: pick a short word (e.g. Y-A-L-E or H-E-L-L-O)
-- [ ] App loaded, camera permission granted, status = "live", mode = Signs
-- [ ] Test mode switch: Signs → Fingerspelling → Signs (confirm both models load)
+- [ ] Editor open to: `workers/mediapipe.worker.ts`, `workers/inference.worker.ts`, `lib/features.ts`, `lib/phonology.ts`
+- [ ] Practice signs ready for **50 signs** mode: pick 6 from different clusters (e.g. HELLO, THANK_YOU, LEARN, WHERE, MOTHER, MORE)
+- [ ] Practice signs ready for **2,279 signs** mode: signs outside the 50-word vocab — show the scale
+- [ ] Practice fingerspelling: Y-A-L-E
+- [ ] App at `/demo` — camera permission granted, model toggle showing `50 signs | 2,279 signs | A–Z`
+- [ ] Confirm status = "live", sidebar shows Phonological Features + Codebook + Minimal Pair
+- [ ] Research page at `/research` — open in another tab, ready to switch to
 
 ---
 
 ## SEGMENT 1 — Cold Open `0:00–0:30`
-*No talking. Hands in frame. App already running in Signs mode.*
+*No talking. Hands in frame. App running in 50-sign mode.*
 
 **Action:**
-1. Sign two signs back to back — pause between them
-2. Auto-geodesic fires → full-screen 3D morph animation
-3. Let it play ~4 seconds — label reads `auto-geodesic [sign A] → [sign B]`
-4. Press Esc to dismiss
+1. Sign 4–5 signs back to back with natural pauses between them
+2. Let the scene run: 3D hand skeleton morphing, spectrogram scrolling at the bottom, phonology arcs firing on each prediction, transcript building in the footer
+3. On the last sign — hold the pose for 2 seconds. Let the commit animate in.
 
-> **Say nothing. Let it breathe.**
+> **Say nothing. Let the full pipeline speak.**
 
 ---
 
@@ -33,55 +34,72 @@
 
 ```
 workers/
-  mediapipe.worker.ts
-  inference.worker.ts     ← runs both sign BiLSTM + fingerspelling MLP
+  mediapipe.worker.ts    ← Hand + Pose + Face landmarks (543 points)
+  inference.worker.ts    ← BiLSTM (50 signs) + Transformer (2,279 signs) + MLP (A–Z)
 lib/
-  features.ts             ← 46-dim phonological features (signs)
-  phonology.ts            ← 13-dim hand geometry features (fingerspelling)
+  features.ts            ← 51-dim phonological feature vector
+  phonology.ts           ← u^N non-manual markers (gaze, mouth, brow)
 ```
 
 **Say:**
 > "Everything you just saw runs entirely in the browser — no server, no API calls, no cloud.
-> Two Web Workers running in parallel: one for MediaPipe hand tracking, one for ONNX Runtime
-> running two models — a BiLSTM for sign recognition and an MLP for fingerspelling.
-> They never block the main thread."
+> Two Web Workers running in parallel: one for MediaPipe, extracting 543 body landmarks
+> every frame, one for ONNX Runtime running three models — a BiLSTM for the 50-sign vocab,
+> a transformer for 2,279 signs, and an MLP for fingerspelling.
+> They never touch the main thread."
 
-**Action:** Open `workers/mediapipe.worker.ts`, scroll to the postMessage with transferables.
-
-**Say:**
-> "I'm not copying landmark data between threads — I'm transferring ownership
-> of the raw ArrayBuffer. Zero-copy. The moment that buffer crosses the thread
-> boundary, the sender loses access to it."
-
----
-
-## SEGMENT 3 — Phonological Feature Extractor `1:10–2:00`
-*Open `lib/features.ts`, scroll to the feature extraction.*
+**Action:** Open `workers/mediapipe.worker.ts`, scroll to the `postMessage` with transferables.
 
 ```ts
-const u_H = computeHandshape(normL, normR);   // (16,) handshape
-const u_L = computeLocation(normL, normR);    // (6,)  location
-const u_O = computeOrientation(normL, normR); // (6,)  orientation
-const u_M = computeMovement(normL, normR, stateL, stateR); // (18,) movement
+if (left_hand)  transferables.push(left_hand.buffer  as ArrayBuffer);
+if (right_hand) transferables.push(right_hand.buffer as ArrayBuffer);
+if (pose)       transferables.push(pose.buffer       as ArrayBuffer);
+if (face)       transferables.push(face.buffer       as ArrayBuffer);
+
+self.postMessage(payload, transferables);
 ```
 
 **Say:**
-> "Each frame I extract a 46-dimensional phonological feature vector.
-> Not raw pixels, not generic pose embeddings — four simultaneous articulatory
-> parameters grounded in ASL linguistics: handshape, location, orientation and movement 
-> This is the representation the BiLSTM actually sees."
-
-**Action:** Switch back to app → move your hand slowly → point at the PhonologyBars
-updating live in the sidebar.
-
-**Say:**
-> "Those bars are updating every frame — H for handshape, L for location,
-> O for orientation, M for movement. You're watching the phonological fingerprint
-> of my hand in real time."
+> "I'm not copying landmark data between threads — I'm transferring ownership
+> of the raw ArrayBuffer. Zero-copy. The sender loses access the moment it crosses
+> the thread boundary. Hands, pose, and 468 face landmarks — all in one transfer."
 
 ---
 
-## SEGMENT 4 — Sign Boundary Detection `2:00–2:40`
+## SEGMENT 3 — 51-D Phonological Feature Vector `1:10–2:00`
+*Open `lib/features.ts`, scroll to the feature extraction block.*
+
+```ts
+const u_H = computeHandshape(normL, normR);    // ℝ¹⁶ — handshape
+const u_L = computeLocation(normL, normR);     // ℝ⁶  — location
+const u_O = computeOrientation(normL, normR);  // ℝ⁶  — orientation
+const u_M = computeMovement(normL, normR, ...);// ℝ¹⁸ — movement
+```
+
+*Open `lib/phonology.ts`, scroll to `computeNonManual`.*
+
+```ts
+return new Float32Array([gaze[0], gaze[1], gaze[2], mouthAp, browH]);
+```
+
+**Say:**
+> "Each frame I extract a 51-dimensional phonological feature vector.
+> Not raw pixels — four articulatory parameters grounded in ASL linguistics:
+> handshape, location, orientation, movement. Plus a fifth: non-manual markers.
+> Gaze direction, mouth aperture, brow height — all from the 468-point face mesh.
+> This is what the BiLSTM actually sees."
+
+**Action:** Switch to the app → move your hand and face → point at the PhonologyBars
+updating live in the sidebar.
+
+**Say:**
+> "H, L, O, M updating every frame. The non-manual channel is running too —
+> that's what separates a yes/no question from a statement in ASL. Same hands,
+> different grammar. The model needs to see it."
+
+---
+
+## SEGMENT 4 — Sign Boundary Detection `2:00–2:30`
 *Open `workers/inference.worker.ts`, scroll to boundary detection.*
 
 ```ts
@@ -90,9 +108,7 @@ if (movNorm < REST_NORM_THRESHOLD) {
 } else {
   restCounter = 0;
 }
-```
 
-```ts
 if (restCounter === REST_FRAMES && ringBuffer.length >= MIN_SIGN_FRAMES) {
   const result = await runInference();
   ringBuffer.length = 0;
@@ -100,132 +116,129 @@ if (restCounter === REST_FRAMES && ringBuffer.length >= MIN_SIGN_FRAMES) {
 
 **Say:**
 > "There's no external segmentation model. I detect sign boundaries by watching
-> the L2 norm of the movement sub-vector — u^M. When movement drops below
-> threshold for four consecutive frames, I run the BiLSTM on the accumulated
-> ring buffer and commit the result.
-> This matches how native signers actually pause between signs
+> the L2 norm of u^M — the movement sub-vector. When it drops below threshold
+> for four consecutive frames, I run inference on the accumulated ring buffer
+> and commit the result. That's it. Linguistically grounded — signers actually
+> pause between signs — not a hack."
 
-**Action:** Switch to app. Sign 4–5 signs. Watch TranscriptStrip build up.
+**Action:** Switch to app. Sign 4–5 signs. Watch the TranscriptStrip build.
 
 **Say:**
-> "Each entry in that transcript is a committed prediction — the model only fires
+> "Each gloss in that transcript is a committed prediction. The model only fires
 > at sign boundaries, not on every frame."
 
 ---
 
-## SEGMENT 5 — Fingerspelling Mode `2:40–3:20`
-*Click the mode toggle to switch from Signs to Fingerspelling.*
+## SEGMENT 5 — 2,279-Sign Model `2:30–3:10`
+*Click the `2,279 signs` button in the top-left pill.*
 
-**Action:** Hold up your hand, fingerspell Y-A-L-E (or another short word). Each letter
-appears live on screen.
+Sidebar switches to Top-5 Predictions panel with live confidence bars.
 
-**Say:**
-> "Same pipeline, different model. I switch from the sign BiLSTM to a
-> fingerspelling MLP — a completely different architecture running on the
-> same inference worker."
-
-**Action:** Open `workers/inference.worker.ts`, scroll to `processFsFeatures`.
-
-```ts
-// z-score normalize using training stats
-const x = new Float32Array(13);
-for (let i = 0; i < 13; i++) x[i] = (fv[i] - fsNormMean[i]) / fsNormStd[i];
-
-const tensor = new ort.Tensor("float32", x, [1, 13]);
-const out    = await fsSession.run({ h_features: tensor });
-```
+**Action:** Sign things outside the 50-word vocab. Watch the top-5 update in real time
+as the model is actively thinking (live state), then commit.
 
 **Say:**
-> "Fingerspelling uses a 13-dimensional feature vector — pure hand geometry,
-> no movement, no face. The MLP classifies individual letters every frame,
-> then a majority-vote smoother over a sliding window stabilizes the output.
-> Different linguistic structure, different model, same real-time loop."
+> "One click — same pipeline, different model. The inference worker swaps to
+> a transformer trained across 2,279 glosses from ASL Citizen and WLASL.
+> The feature extraction is identical — same 51 dimensions — the model on top just changed."
 
-**Action:** Switch back to Signs mode. The transition should be instant.
+**Action:** Sign a few more. Show top-5 probabilities shifting live in the sidebar.
+
+**Say:**
+> "The top-5 while the model is thinking — you're watching the posterior
+> redistribute in real time before it commits."
+
+*Click back to `50 signs`.*
 
 ---
 
-## SEGMENT 6 — Sign Space Globe + The Comet `3:20–3:55`
-*Signs mode. Globe rings visible as background layer.*
+## SEGMENT 6 — Fingerspelling `3:10–3:35`
+*Click `A–Z` in the pill.*
 
-**Action:** Sign a few things. Show the comet drifting toward each prediction on the globe.
-
-**Say:**
-> "Every sign in the 50-word vocabulary is a ring on this sphere — projected
-> from the phonological feature space onto S². As I sign, a comet tracks
-> through them."
-
-**Action:** Open `components/HandScene3D.tsx`, scroll to the SignGlobe comet centroid code.
-
-```ts
-cx += SIGN_POS_UNIT[i].x * p;   // probability-weighted centroid
-cy += SIGN_POS_UNIT[i].y * p;
-cz += SIGN_POS_UNIT[i].z * p;
-cometTarget.current.set(cx / len, cy / len, cz / len);
-```
+**Action:** Fingerspell Y-A-L-E. Each letter appears live.
 
 **Say:**
-> "The comet isn't following the top prediction — it's tracking the
-> probability-weighted centroid of the entire softmax distribution,
-> projected back onto S². You're watching the model's uncertainty
-> moving through sign space in real time."
+> "Same inference worker, third model — a 13-feature MLP for individual letters.
+> Hand geometry only, no movement, no face. Majority-vote smoother over a
+> sliding window stabilizes the output. Different linguistic structure,
+> different architecture, same real-time loop."
+
+*Click back to `50 signs`.*
 
 ---
 
-## SEGMENT 7 — Geodesic Mode `3:55–4:30`
-*Click Geodesic in the header. Pick two phonologically distant signs.*
+## SEGMENT 7 — Minimal Pair + Geodesic `3:35–4:20`
+*50-sign mode. Sign something that has a minimal pair — MOTHER, FATHER, MORE, SAME.*
 
-**Action:** Show the 3D avatar morphing between sign A and sign B. Math panel updating.
-
-**Say:**
-> "Signs aren't just labels — they're points in a Riemannian manifold.
-> This interpolator walks the geodesic between any two signs through the
-> product space of handshape, location, and orientation, and shows the
-> per-component phonological distance."
-
-**Action:** Pause on midpoint. Point at the formula on screen.
+The sidebar MinimalPairPanel activates: shows the two signs on a disambiguation track
+with a live cursor tracking your hand.
 
 **Say:**
-> "The auto-geodesic you saw at the very start fires automatically every
-> time two consecutive signs are recognized. Recognition triggers
-> geometry — the math isn't decorative, it's live."
+> "MOTHER and FATHER are a minimal pair — they differ in exactly one phonological
+> parameter: contact. Same handshape, same location, same movement. The cursor shows
+> where my hand sits on that dimension right now."
+
+**Action:** Click `view geodesic →` in the sidebar.
+
+Geodesic mode fills the screen: 3D avatar morphing between the two signs along the
+phonological manifold.
+
+**Say:**
+> "Signs aren't labels — they're points in a Riemannian manifold. This walks the
+> geodesic between the two signs through the product space of handshape, location,
+> and orientation. Recognition triggered geometry. The math isn't decorative — it's live."
+
+**Action:** Drag the interpolation slider slowly from A to B. Pause at midpoint.
 
 ---
 
-## SEGMENT 8 — Close `4:30–5:00`
-*Switch back to Signs mode. Hands in frame.*
+## SEGMENT 8 — Generate Mode (5 seconds) `4:20–4:30`
+*Click Generate in the header.*
 
-**Action:** Sign 3–4 signs continuously. Let the scene run — globe rotating behind your
-hands, spectrogram scrolling, wrist trails, particles, transcript building.
-No cuts. No voiceover for a beat. Just the full pipeline running.
+**Action:** Type or click a gloss from the list — avatar animates to that sign.
+
+**Say (one line):**
+> "And forward — I can drive the avatar directly from the phonological representation,
+> without a camera."
+
+*Click back to Recognize mode.*
+
+---
+
+## SEGMENT 9 — Close `4:30–5:00`
+*50-sign mode. Hands in frame. No cuts.*
+
+**Action:** Sign 4–5 signs continuously. Let the full scene run — 3D skeleton, spectrogram
+scrolling, arcs firing, transcript building. Hold the last sign.
 
 **Say (quietly, over the live scene):**
-> "Two models, two architectures, one pipeline. Fully client-side ASL recognition —
-> signs and fingerspelling — with real-time phonological visualization.
-> No server. No cloud. All browser."
+> "Three models, two Web Workers, 51 phonological dimensions, zero server calls.
+> Real-time ASL recognition — signs, fingerspelling, and the math behind both —
+> running entirely in the browser."
 
-Let the transcript build for the last 10 seconds. End there.
+Let the transcript sit for the final 8 seconds. End there.
 
 ---
 
 ## KEY LINES TO MEMORIZE
-These are the sentences that matter most — practice until they're natural:
+Practice until natural — these are the sentences the reviewer will remember:
 
 1. **"No server, no cloud. Two Web Workers, zero-copy ArrayBuffer transfer."**
-2. **"Not raw pixels — a 46-dimensional phonological feature vector grounded in ASL linguistics."**
-3. **"Sign boundaries detected by the L2 norm of the movement sub-vector. Linguistically grounded, not a hack."**
-4. **"Same pipeline, different model — a BiLSTM for signs, an MLP for fingerspelling."**
-5. **"The comet tracks the probability-weighted centroid of the full softmax distribution on S²."**
-6. **"Recognition triggers geometry — the math isn't decorative, it's live."**
-7. **"Two models, two architectures, one pipeline. All browser."**
+2. **"51-dimensional phonological feature vector — not pixels, not embeddings. ASL linguistics."**
+3. **"Sign boundaries from the L2 norm of the movement sub-vector. Linguistically grounded, not a hack."**
+4. **"Same pipeline, different model. BiLSTM for 50 signs, transformer for 2,279, MLP for letters."**
+5. **"Non-manual markers — gaze, mouth aperture, brow height — from 468 face landmarks. That's what separates a question from a statement in ASL."**
+6. **"Recognition triggered geometry. The math isn't decorative — it's live."**
+7. **"Three models, two workers, 51 dimensions, zero server calls."**
 
 ---
 
 ## PACING NOTES
 - Talk slower than feels natural — you know this cold, the reviewer doesn't
 - Never say "um" before a code line — pause instead, let the code appear, then speak
-- The cold open silence is intentional — do not fill it
-- The mode switch to fingerspelling should feel effortless — one click, instant transition
+- Cold open silence is intentional — do not fill it
+- The 3-way model pill switch should feel instant and effortless — click, done
+- When the geodesic is morphing, let it breathe — don't talk over the animation
 - End on the app running, not on your face
 
 ---
@@ -235,3 +248,20 @@ These are the sentences that matter most — practice until they're natural:
 - ~~"It's kind of like..."~~ — be direct
 - ~~"I'm still working on..."~~ — don't apologize for scope
 - ~~"Sorry if..."~~ — no apologies
+- ~~"As you can see..."~~ — they can see it
+
+---
+
+## DEMO PAGE STATE BY SEGMENT
+
+| Segment | Mode toggle | Sidebar shows |
+|---------|------------|---------------|
+| 1 Cold open | 50 signs | Phonology + Codebook + Minimal Pair |
+| 2 Architecture | editor | — |
+| 3 Features | editor → app | Phonology bars live |
+| 4 Boundaries | editor → app | Transcript building |
+| 5 2,279 signs | **2,279 signs** | Top-5 with confidence bars |
+| 6 Fingerspelling | **A–Z** | Phonology bars only |
+| 7 Minimal pair | **50 signs** | Minimal Pair → Geodesic full screen |
+| 8 Generate | **Generate** | — (full screen avatar) |
+| 9 Close | **50 signs** | Full pipeline |
