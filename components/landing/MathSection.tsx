@@ -131,9 +131,12 @@ export function MathSection() {
             marginBottom: 56,
           }}
         >
-          Five equations drive the system. Each one maps to a concrete operation in the
+          Five equations drive sign recognition. Each one maps to a concrete operation in the
           pipeline — from linguistic constraints on the sign space, through mobile camera
           correction, to the phonological feature vector the model actually sees.
+          The full grading pipeline uses an extended 9-tuple alphabet —
+          explored in the{" "}
+          <a href="/research" style={{ color: "var(--teal)", textDecoration: "none" }}>Math Explorer</a>.
         </motion.p>
 
         {/* Formula cards */}

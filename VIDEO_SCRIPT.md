@@ -1,5 +1,5 @@
 # YC Summer Grants 2026 — Demo Video Script
-**Target: 5 minutes · Unlisted YouTube · No server. No cloud. All browser.**
+**Target: ~5:30 · Unlisted YouTube · No server. No cloud. All browser.**
 
 ---
 
@@ -11,13 +11,35 @@
 - [ ] Practice signs ready for **50 signs** mode: pick 6 from different clusters (e.g. HELLO, THANK_YOU, LEARN, WHERE, MOTHER, MORE)
 - [ ] Practice signs ready for **2,279 signs** mode: signs outside the 50-word vocab — show the scale
 - [ ] Practice fingerspelling: Y-A-L-E
-- [ ] App at `/demo` — camera permission granted, model toggle showing `50 signs | 2,279 signs | A–Z`
-- [ ] Confirm status = "live", sidebar shows Phonological Features + Codebook + Minimal Pair
-- [ ] Research page at `/research` — open in another tab, ready to switch to
+- [ ] **Start recording on the landing page** `/` — scroll to math section is the first shot
+- [ ] Demo pre-loaded in a background tab: `/demo` — camera permission granted, `50 signs` selected
+- [ ] Confirm demo status = "live", sidebar shows Phonological Features + Codebook + Minimal Pair
 
 ---
 
-## SEGMENT 1 — Cold Open `0:00–0:30`
+## SEGMENT 0 — Landing Page / Math Foundation `0:00–0:30`
+*Start on the landing page. Scroll slowly down to the math section.*
+
+**Action:**
+1. Land on `/` — let the hero animate in (2–3 seconds)
+2. Scroll down to the MathSection — five formula cards come into view
+3. Scroll slowly past three of them: Battison Dominance Constraint → Sim(3) Normalization → Feature Vector
+4. Do not stop or zoom — let the cards pass at reading pace
+
+**Say:**
+> "Before the demo — the math the system is built on.
+> Battison's Dominance Constraint collapses the sign space from 1,225 possible
+> handshape pairs to 315 — a linguistic result from 1978, no ML required.
+> Sim(3) normalization removes position, scale, and yaw from every frame
+> so the model never sees where you're standing, only how you're signing.
+> And the output is a 51-dimensional phonological feature vector —
+> not pixels, not learned embeddings. ASL linguistics."
+
+**Action:** Click into the demo (tab switch or nav link). Camera should already be live.
+
+---
+
+## SEGMENT 1 — Cold Open `0:30–1:00`
 *No talking. Hands in frame. App running in 50-sign mode.*
 
 **Action:**
@@ -29,7 +51,7 @@
 
 ---
 
-## SEGMENT 2 — Architecture `0:30–1:10`
+## SEGMENT 2 — Architecture `1:00–1:40`
 *Switch to editor. Show file tree.*
 
 ```
@@ -66,7 +88,7 @@ self.postMessage(payload, transferables);
 
 ---
 
-## SEGMENT 3 — 51-D Phonological Feature Vector `1:10–2:00`
+## SEGMENT 3 — 51-D Phonological Feature Vector `1:40–2:30`
 *Open `lib/features.ts`, scroll to the feature extraction block.*
 
 ```ts
@@ -99,7 +121,7 @@ updating live in the sidebar.
 
 ---
 
-## SEGMENT 4 — Sign Boundary Detection `2:00–2:30`
+## SEGMENT 4 — Sign Boundary Detection `2:30–3:00`
 *Open `workers/inference.worker.ts`, scroll to boundary detection.*
 
 ```ts
@@ -129,7 +151,7 @@ if (restCounter === REST_FRAMES && ringBuffer.length >= MIN_SIGN_FRAMES) {
 
 ---
 
-## SEGMENT 5 — 2,279-Sign Model `2:30–3:10`
+## SEGMENT 5 — 2,279-Sign Model `3:00–3:40`
 *Click the `2,279 signs` button in the top-left pill.*
 
 Sidebar switches to Top-5 Predictions panel with live confidence bars.
@@ -152,7 +174,7 @@ as the model is actively thinking (live state), then commit.
 
 ---
 
-## SEGMENT 6 — Fingerspelling `3:10–3:35`
+## SEGMENT 6 — Fingerspelling `3:40–4:05`
 *Click `A–Z` in the pill.*
 
 **Action:** Fingerspell Y-A-L-E. Each letter appears live.
@@ -167,7 +189,7 @@ as the model is actively thinking (live state), then commit.
 
 ---
 
-## SEGMENT 7 — Minimal Pair + Geodesic `3:35–4:20`
+## SEGMENT 7 — Minimal Pair + Geodesic `4:05–4:50`
 *50-sign mode. Sign something that has a minimal pair — MOTHER, FATHER, MORE, SAME.*
 
 The sidebar MinimalPairPanel activates: shows the two signs on a disambiguation track
@@ -192,7 +214,7 @@ phonological manifold.
 
 ---
 
-## SEGMENT 8 — Generate Mode (5 seconds) `4:20–4:30`
+## SEGMENT 8 — Generate Mode (5 seconds) `4:50–5:00`
 *Click Generate in the header.*
 
 **Action:** Type or click a gloss from the list — avatar animates to that sign.
@@ -205,7 +227,7 @@ phonological manifold.
 
 ---
 
-## SEGMENT 9 — Close `4:30–5:00`
+## SEGMENT 9 — Close `5:00–5:30`
 *50-sign mode. Hands in frame. No cuts.*
 
 **Action:** Sign 4–5 signs continuously. Let the full scene run — 3D skeleton, spectrogram
@@ -252,16 +274,17 @@ Practice until natural — these are the sentences the reviewer will remember:
 
 ---
 
-## DEMO PAGE STATE BY SEGMENT
+## PAGE / MODE STATE BY SEGMENT
 
-| Segment | Mode toggle | Sidebar shows |
-|---------|------------|---------------|
-| 1 Cold open | 50 signs | Phonology + Codebook + Minimal Pair |
-| 2 Architecture | editor | — |
-| 3 Features | editor → app | Phonology bars live |
-| 4 Boundaries | editor → app | Transcript building |
-| 5 2,279 signs | **2,279 signs** | Top-5 with confidence bars |
-| 6 Fingerspelling | **A–Z** | Phonology bars only |
-| 7 Minimal pair | **50 signs** | Minimal Pair → Geodesic full screen |
-| 8 Generate | **Generate** | — (full screen avatar) |
-| 9 Close | **50 signs** | Full pipeline |
+| Segment | Page | Mode toggle | Sidebar shows |
+|---------|------|------------|---------------|
+| 0 Landing / Math | `/` | — | 5 formula cards scrolling |
+| 1 Cold open | `/demo` | 50 signs | Phonology + Codebook + Minimal Pair |
+| 2 Architecture | editor | — | — |
+| 3 Features | editor → `/demo` | 50 signs | Phonology bars live |
+| 4 Boundaries | editor → `/demo` | 50 signs | Transcript building |
+| 5 2,279 signs | `/demo` | **2,279 signs** | Top-5 with confidence bars |
+| 6 Fingerspelling | `/demo` | **A–Z** | Phonology bars only |
+| 7 Minimal pair | `/demo` | **50 signs** | Minimal Pair → Geodesic full screen |
+| 8 Generate | `/demo` | **Generate** | — (full screen avatar) |
+| 9 Close | `/demo` | **50 signs** | Full pipeline |
